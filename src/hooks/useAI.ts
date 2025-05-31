@@ -69,15 +69,15 @@ export const useAI = () => {
       try {
         console.log('Loading parameters for user:', user.id, 'model:', selectedModelId);
         
-        // Load saved AI parameters
+        // Load saved AI parameters - use maybeSingle instead of single
         const { data: userParams, error } = await supabase
           .from('ai_parameters')
           .select('*')
           .eq('user_id', user.id)
           .eq('model_id', selectedModelId)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        if (error) {
           console.error('Error loading user parameters:', error);
           return;
         }
@@ -100,7 +100,7 @@ export const useAI = () => {
           .from('user_preferences')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         // We could add a last_used_prompt_id field to user_preferences in the future
         // For now, we'll keep the default empty selection

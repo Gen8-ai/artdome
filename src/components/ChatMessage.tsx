@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -7,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { User, Bot, Code2, Eye, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Message {
   id: string;
@@ -25,6 +25,8 @@ interface ChatMessageProps {
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onContentRender }) => {
+  const isMobile = useIsMobile();
+  
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -50,17 +52,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
 
   return (
     <div className={`flex group w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex w-full max-w-[85%] space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+      <div className={`flex w-full ${isMobile ? 'max-w-[95%]' : 'max-w-[85%]'} space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
         
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <Avatar className="w-10 h-10">
+          <Avatar className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'}`}>
             <AvatarFallback className={`${
               isUser 
                 ? 'bg-primary text-primary-foreground' 
                 : 'bg-muted text-muted-foreground'
             }`}>
-              {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+              {isUser ? <User className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} /> : <Bot className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -69,27 +71,27 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
         <div className="flex-1 min-w-0 space-y-2">
           
           {/* Message Header */}
-          <div className={`flex items-center space-x-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
-            <span className="text-sm font-medium text-foreground">
+          <div className={`flex items-center space-x-2 ${isUser ? 'justify-end' : 'justify-start'} ${isMobile ? 'flex-wrap gap-1' : ''}`}>
+            <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-foreground`}>
               {isUser ? 'You' : 'AI Assistant'}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground`}>
               {formatTime(message.timestamp)}
             </span>
             {message.mode && !isUser && (
-              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+              <span className={`${isMobile ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-1'} rounded-full bg-primary/10 text-primary font-medium`}>
                 {message.mode}
               </span>
             )}
           </div>
 
           {/* Message Bubble */}
-          <div className={`rounded-2xl p-4 break-words overflow-hidden ${
+          <div className={`rounded-2xl ${isMobile ? 'p-3' : 'p-4'} break-words overflow-hidden ${
             isUser 
               ? 'bg-primary text-primary-foreground' 
               : 'bg-muted/50 border border-border'
           }`}>
-            <div className={`prose prose-sm max-w-none break-words ${
+            <div className={`prose ${isMobile ? 'prose-sm' : 'prose-sm'} max-w-none break-words ${
               isUser 
                 ? 'prose-invert' 
                 : 'prose-neutral dark:prose-invert'
@@ -102,17 +104,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
                     const isInline = !match;
                     
                     return !isInline ? (
-                      <div className="my-4 overflow-hidden rounded-lg border border-border">
+                      <div className={`${isMobile ? 'my-2' : 'my-4'} overflow-hidden rounded-lg border border-border`}>
                         <SyntaxHighlighter
                           style={isDarkMode ? atomDark : prism}
                           language={match[1]}
                           PreTag="div"
-                          className="text-sm"
+                          className={`${isMobile ? 'text-xs' : 'text-sm'}`}
                           customStyle={{
                             margin: 0,
                             background: 'transparent',
                             WebkitOverflowScrolling: 'touch',
-                            overflowX: 'auto'
+                            overflowX: 'auto',
+                            fontSize: isMobile ? '12px' : '14px'
                           }}
                           wrapLines={true}
                           wrapLongLines={true}
@@ -121,7 +124,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
                         </SyntaxHighlighter>
                       </div>
                     ) : (
-                      <code className={`px-1.5 py-0.5 rounded text-sm font-mono break-all ${
+                      <code className={`px-1.5 py-0.5 rounded ${isMobile ? 'text-xs' : 'text-sm'} font-mono break-all ${
                         isUser 
                           ? 'bg-primary-foreground/20' 
                           : 'bg-muted'
@@ -130,16 +133,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
                       </code>
                     );
                   },
-                  h1: ({ children }) => <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0 break-words">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-3 break-words">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-base font-bold mb-2 mt-3 break-words">{children}</h3>,
-                  p: ({ children }) => <p className="mb-3 leading-relaxed last:mb-0 break-words">{children}</p>,
-                  ul: ({ children }) => <ul className="mb-3 space-y-1 last:mb-0">{children}</ul>,
-                  ol: ({ children }) => <ol className="mb-3 space-y-1 last:mb-0">{children}</ol>,
+                  h1: ({ children }) => <h1 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold ${isMobile ? 'mb-2 mt-3' : 'mb-3 mt-4'} first:mt-0 break-words`}>{children}</h1>,
+                  h2: ({ children }) => <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold ${isMobile ? 'mb-1.5 mt-2' : 'mb-2 mt-3'} break-words`}>{children}</h2>,
+                  h3: ({ children }) => <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-bold ${isMobile ? 'mb-1.5 mt-2' : 'mb-2 mt-3'} break-words`}>{children}</h3>,
+                  p: ({ children }) => <p className={`${isMobile ? 'mb-2' : 'mb-3'} leading-relaxed last:mb-0 break-words`}>{children}</p>,
+                  ul: ({ children }) => <ul className={`${isMobile ? 'mb-2' : 'mb-3'} space-y-1 last:mb-0`}>{children}</ul>,
+                  ol: ({ children }) => <ol className={`${isMobile ? 'mb-2' : 'mb-3'} space-y-1 last:mb-0`}>{children}</ol>,
                   li: ({ children }) => <li className="leading-relaxed break-words">{children}</li>,
                   strong: ({ children }) => <strong className="font-semibold break-words">{children}</strong>,
                   blockquote: ({ children }) => (
-                    <blockquote className={`border-l-4 pl-4 italic my-4 break-words ${
+                    <blockquote className={`border-l-4 ${isMobile ? 'pl-3 my-3' : 'pl-4 my-4'} italic break-words ${
                       isUser 
                         ? 'border-primary-foreground/30 bg-primary-foreground/10' 
                         : 'border-primary bg-muted/50'
@@ -147,7 +150,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
                       {children}
                     </blockquote>
                   ),
-                  // Handle long URLs and links
                   a: ({ children, href, ...props }) => (
                     <a 
                       href={href} 
@@ -167,13 +169,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
 
             {/* Action Buttons */}
             {(message.artifact || hasRenderableCode) && (
-              <div className="mt-4 pt-4 border-t border-border/20 flex gap-2 flex-wrap">
+              <div className={`${isMobile ? 'mt-3 pt-3' : 'mt-4 pt-4'} border-t border-border/20 flex gap-2 ${isMobile ? 'flex-col' : 'flex-wrap'}`}>
                 {message.artifact && (
                   <Button
                     onClick={onArtifactClick}
                     variant={isUser ? "secondary" : "outline"}
-                    size="sm"
-                    className="flex items-center space-x-2"
+                    size={isMobile ? "sm" : "sm"}
+                    className={`flex items-center space-x-2 ${isMobile ? 'w-full justify-center' : ''}`}
                   >
                     <Eye className="w-4 h-4" />
                     <span>View Artifact</span>
@@ -184,8 +186,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onC
                   <Button
                     onClick={handleContentRender}
                     variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-2"
+                    size={isMobile ? "sm" : "sm"}
+                    className={`flex items-center space-x-2 ${isMobile ? 'w-full justify-center' : ''}`}
                   >
                     <Globe className="w-4 h-4" />
                     <span>Render Content</span>

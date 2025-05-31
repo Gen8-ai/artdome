@@ -8,6 +8,7 @@ import { useAI } from '@/hooks/useAI';
 import { useMessages } from '@/hooks/useMessages';
 import { useConversation } from '@/contexts/ConversationContext';
 import { useConversations } from '@/hooks/useConversations';
+import { useIsMobile } from '@/hooks/use-mobile';
 import ChatMessage from './ChatMessage';
 import ContentRenderer from './ContentRenderer';
 import PromptSelector from './PromptSelector';
@@ -30,6 +31,7 @@ const ChatInterface = () => {
   const [rendererContent, setRendererContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useIsMobile();
   
   const { currentConversationId } = useConversation();
   const { createConversation } = useConversations();
@@ -179,19 +181,19 @@ const ChatInterface = () => {
       {/* Messages Container with ScrollArea */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
-          <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className={`max-w-4xl mx-auto ${isMobile ? 'px-2 py-4' : 'px-4 py-6'}`}>
             {displayMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <Sparkles className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-semibold mb-2">Welcome to AI Assistant</h2>
-                <p className="text-muted-foreground max-w-md">
+                <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold mb-2`}>Welcome to AI Assistant</h2>
+                <p className={`text-muted-foreground ${isMobile ? 'max-w-sm text-sm' : 'max-w-md'}`}>
                   Start a conversation by typing a message below. I'm here to help with any questions or tasks you might have.
                 </p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className={`space-y-${isMobile ? '4' : '6'}`}>
                 {displayMessages.map(message => (
                   <ChatMessage 
                     key={message.id} 
@@ -200,11 +202,11 @@ const ChatInterface = () => {
                   />
                 ))}
                 {isLoading && (
-                  <div className="flex items-center space-x-2 text-muted-foreground px-4">
+                  <div className={`flex items-center space-x-2 text-muted-foreground ${isMobile ? 'px-2' : 'px-4'}`}>
                     <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                     <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                     <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                    <span className="text-sm">AI is thinking...</span>
+                    <span className={`${isMobile ? 'text-xs' : 'text-sm'}`}>AI is thinking...</span>
                   </div>
                 )}
               </div>
@@ -216,18 +218,18 @@ const ChatInterface = () => {
 
       {/* Input Area */}
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm flex-shrink-0">
-        <div className="max-w-4xl mx-auto p-4">
+        <div className={`max-w-4xl mx-auto ${isMobile ? 'p-3' : 'p-4'}`}>
           <div className="space-y-3">
             {/* Quick Prompt Buttons */}
             {!promptsLoading && prompts && availableCategories.length > 0 && (
               <div className="flex flex-wrap gap-1 overflow-x-auto">
-                {availableCategories.slice(0, 4).map(category =>
+                {availableCategories.slice(0, isMobile ? 3 : 4).map(category =>
                   getPromptsByCategory(category).slice(0, 1).map(prompt => (
                     <Button
                       key={prompt.id}
                       variant={selectedPromptId === prompt.id ? "default" : "outline"}
                       onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs flex-shrink-0"
+                      className={`${isMobile ? 'h-8 px-3 text-xs' : 'h-6 px-2 text-xs'} flex-shrink-0`}
                     >
                       {prompt.name}
                     </Button>
@@ -236,7 +238,7 @@ const ChatInterface = () => {
                 <Button
                   variant={!selectedPromptId ? "default" : "outline"}
                   onClick={() => setSelectedPromptId('')}
-                  className="h-6 px-2 text-xs flex-shrink-0"
+                  className={`${isMobile ? 'h-8 px-3 text-xs' : 'h-6 px-2 text-xs'} flex-shrink-0`}
                 >
                   General
                 </Button>
@@ -244,7 +246,7 @@ const ChatInterface = () => {
             )}
 
             {promptsLoading && (
-              <div className="text-xs text-muted-foreground">Loading prompts...</div>
+              <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground`}>Loading prompts...</div>
             )}
             
             {/* Input Container */}
@@ -255,14 +257,14 @@ const ChatInterface = () => {
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Type your message here..."
-                className="min-h-[60px] max-h-[200px] resize-none pr-12 border-border/50"
+                className={`${isMobile ? 'min-h-[50px] max-h-[150px]' : 'min-h-[60px] max-h-[200px]'} resize-none pr-12 border-border/50`}
                 disabled={isLoading}
               />
               <Button
                 onClick={sendMessage}
                 disabled={!inputValue.trim() || isLoading}
                 size="sm"
-                className="absolute right-2 bottom-2 h-8 w-8 p-0"
+                className={`absolute right-2 bottom-2 ${isMobile ? 'h-7 w-7' : 'h-8 w-8'} p-0`}
               >
                 <Send className="w-4 h-4" />
               </Button>

@@ -10,9 +10,17 @@ import {
   Maximize,
   Minimize,
   Download,
-  Copy
+  Copy,
+  MoreHorizontal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ContentRendererProps {
   content: string;
@@ -24,6 +32,7 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const currentBlock = blocks[currentIndex];
 
@@ -92,7 +101,7 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
 
   if (isLoading) {
     return (
-      <div className={`fixed inset-0 bg-background z-50 flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-4'}`}>
+      <div className={`fixed inset-0 bg-background z-50 flex items-center justify-center ${isFullscreen ? 'p-0' : isMobile ? 'p-2' : 'p-4'}`}>
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Parsing content...</p>
@@ -103,26 +112,26 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
 
   if (error || !hasContent) {
     return (
-      <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : 'p-4'}`}>
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Content Renderer</h2>
+      <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : isMobile ? 'p-2' : 'p-4'}`}>
+        <div className={`flex items-center justify-between ${isMobile ? 'p-3' : 'p-4'} border-b border-border`}>
+          <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold`}>Content Renderer</h2>
           <Button onClick={onClose} variant="ghost" size="sm">
             <X className="w-4 h-4" />
           </Button>
         </div>
         
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <h3 className="text-xl font-semibold mb-2">
+          <div className={`text-center ${isMobile ? 'max-w-sm px-4' : 'max-w-md'}`}>
+            <h3 className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold mb-2`}>
               {error ? 'Parsing Error' : 'No Renderable Content'}
             </h3>
             <p className="text-muted-foreground mb-4">
               {error || 'The message doesn\'t contain any supported content types (HTML, React, CSS, JavaScript, Canvas, or Artifacts).'}
             </p>
             {error && (
-              <details className="text-left bg-muted p-3 rounded text-sm">
+              <details className={`text-left bg-muted p-3 rounded ${isMobile ? 'text-xs' : 'text-sm'}`}>
                 <summary className="cursor-pointer font-medium">Error Details</summary>
-                <pre className="mt-2 text-xs">{error}</pre>
+                <pre className={`mt-2 ${isMobile ? 'text-xs' : 'text-xs'}`}>{error}</pre>
               </details>
             )}
           </div>
@@ -132,26 +141,26 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
   }
 
   return (
-    <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : 'p-4'}`}>
+    <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : isMobile ? 'p-1' : 'p-4'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur">
-        <div className="flex items-center space-x-3">
+      <div className={`flex items-center justify-between ${isMobile ? 'p-3' : 'p-4'} border-b border-border bg-background/95 backdrop-blur`}>
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
           <Button onClick={onClose} variant="ghost" size="sm">
             <X className="w-4 h-4" />
           </Button>
           
-          <div>
-            <h2 className="text-lg font-semibold">Content Renderer</h2>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <h2 className={`${isMobile ? 'text-sm' : 'text-lg'} font-semibold truncate`}>Content Renderer</h2>
+            <div className={`flex items-center space-x-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
               <span>{blocks.length} block(s)</span>
               <span>•</span>
-              <span>{contentTypes.join(', ')}</span>
+              <span className="truncate">{contentTypes.join(', ')}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          {/* Navigation */}
+        <div className="flex items-center space-x-1 flex-shrink-0">
+          {/* Navigation - Always visible but compact on mobile */}
           {blocks.length > 1 && (
             <>
               <Button 
@@ -159,11 +168,12 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
                 variant="ghost" 
                 size="sm" 
                 disabled={currentIndex === 0}
+                className={isMobile ? 'h-8 w-8 p-0' : ''}
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               
-              <span className="text-sm px-3 py-1 bg-muted rounded">
+              <span className={`${isMobile ? 'text-xs px-2 py-1' : 'text-sm px-3 py-1'} bg-muted rounded whitespace-nowrap`}>
                 {currentIndex + 1} / {blocks.length}
               </span>
               
@@ -172,24 +182,60 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
                 variant="ghost" 
                 size="sm" 
                 disabled={currentIndex === blocks.length - 1}
+                className={isMobile ? 'h-8 w-8 p-0' : ''}
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </>
           )}
 
-          {/* Actions */}
-          <Button onClick={handleCopy} variant="ghost" size="sm">
-            <Copy className="w-4 h-4" />
-          </Button>
-          
-          <Button onClick={handleDownload} variant="ghost" size="sm">
-            <Download className="w-4 h-4" />
-          </Button>
-          
-          <Button onClick={() => setIsFullscreen(!isFullscreen)} variant="ghost" size="sm">
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-          </Button>
+          {/* Actions - Use dropdown on mobile */}
+          {isMobile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCopy}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownload}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsFullscreen(!isFullscreen)}>
+                  {isFullscreen ? (
+                    <>
+                      <Minimize className="w-4 h-4 mr-2" />
+                      Exit Fullscreen
+                    </>
+                  ) : (
+                    <>
+                      <Maximize className="w-4 h-4 mr-2" />
+                      Fullscreen
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button onClick={handleCopy} variant="ghost" size="sm">
+                <Copy className="w-4 h-4" />
+              </Button>
+              
+              <Button onClick={handleDownload} variant="ghost" size="sm">
+                <Download className="w-4 h-4" />
+              </Button>
+              
+              <Button onClick={() => setIsFullscreen(!isFullscreen)} variant="ghost" size="sm">
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

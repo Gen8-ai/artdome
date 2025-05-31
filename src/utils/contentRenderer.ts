@@ -1,4 +1,3 @@
-
 export interface ContentBlock {
   id: string;
   type: 'html' | 'react' | 'canvas' | 'artifact' | 'css' | 'javascript' | 'mixed';
@@ -152,6 +151,27 @@ export class ContentRenderer {
         background-color: ${theme === 'dark' ? '#1a1a1a' : '#ffffff'};
         padding: 1rem;
         min-height: 100vh;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Mobile optimizations */
+      @media (max-width: 768px) {
+        body {
+          padding: 0.5rem;
+          font-size: 14px;
+        }
+        
+        pre, code {
+          font-size: 12px !important;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        .content-wrapper {
+          max-width: 100%;
+          overflow-x: auto;
+        }
       }
       
       .error-display {
@@ -163,6 +183,8 @@ export class ContentRenderer {
         margin: 1rem 0;
         font-family: 'Courier New', monospace;
         font-size: 0.875rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
       }
       
       .loading-display {
@@ -171,11 +193,14 @@ export class ContentRenderer {
         justify-content: center;
         min-height: 200px;
         color: ${theme === 'dark' ? '#9ca3af' : '#6b7280'};
+        text-align: center;
+        padding: 1rem;
       }
       
       .content-wrapper {
         max-width: 100%;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
       
       pre {
@@ -186,13 +211,27 @@ export class ContentRenderer {
         overflow-x: auto;
         white-space: pre-wrap;
         word-wrap: break-word;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Better mobile touch targets */
+      @media (max-width: 768px) {
+        button, .button, input, select, textarea {
+          min-height: 44px;
+        }
+      }
+      
+      /* Responsive images and media */
+      img, video, canvas {
+        max-width: 100%;
+        height: auto;
       }
     `;
   }
 
   private getErrorBoundaryScript(): string {
     return `
-      // Enhanced error boundary for React components
+      // Enhanced error boundary for React components with mobile considerations
       class ErrorBoundary extends React.Component {
         constructor(props) {
           super(props);
@@ -206,24 +245,71 @@ export class ContentRenderer {
         componentDidCatch(error, errorInfo) {
           this.setState({ error: error.message, errorInfo });
           
-          // Send error to parent window
-          if (window.parent !== window) {
-            window.parent.postMessage({
-              type: 'react-error',
-              message: error.message,
-              stack: error.stack,
-              componentStack: errorInfo.componentStack
-            }, '*');
-          }
+          // Enhanced error reporting
+          const errorData = {
+            type: 'react-error',
+            message: error.message,
+            stack: error.stack,
+            componentStack: errorInfo.componentStack,
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent,
+            viewport: {
+              width: window.innerWidth,
+              height: window.innerHeight
+            }
+          };
+          
+          console.error('[ErrorBoundary] Component error:', errorData);
+          
+          // Send error to parent window with retry logic
+          const sendError = () => {
+            try {
+              if (window.parent !== window) {
+                window.parent.postMessage(errorData, '*');
+              }
+            } catch (e) {
+              console.warn('[ErrorBoundary] Failed to send error to parent:', e);
+            }
+          };
+          
+          sendError();
         }
 
         render() {
           if (this.state.hasError) {
             return React.createElement('div', {
-              className: 'error-display'
+              className: 'error-display',
+              style: { 
+                margin: '1rem',
+                padding: '1rem',
+                borderRadius: '0.5rem',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626'
+              }
             }, [
-              React.createElement('h3', { key: 'title' }, '⚠️ Component Error'),
-              React.createElement('p', { key: 'message' }, this.state.error)
+              React.createElement('h3', { 
+                key: 'title',
+                style: { marginBottom: '0.5rem', fontSize: '1rem' }
+              }, '⚠️ Component Error'),
+              React.createElement('p', { 
+                key: 'message',
+                style: { fontSize: '0.875rem', wordWrap: 'break-word' }
+              }, this.state.error),
+              React.createElement('button', {
+                key: 'retry',
+                onClick: () => window.location.reload(),
+                style: {
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.25rem',
+                  cursor: 'pointer',
+                  minHeight: '44px'
+                }
+              }, 'Retry')
             ]);
           }
           return this.props.children;
@@ -234,7 +320,7 @@ export class ContentRenderer {
 
   private getConsoleCapture(): string {
     return `
-      // Enhanced console capture with error prevention
+      // Enhanced console capture with mobile optimizations and performance considerations
       (function() {
         try {
           const originalConsole = {
@@ -245,33 +331,68 @@ export class ContentRenderer {
           };
           
           window.capturedLogs = [];
+          let messageBuffer = [];
+          let sendTimeout = null;
+          
+          // Throttled message sending to prevent spam
+          const sendBufferedMessages = () => {
+            if (messageBuffer.length === 0) return;
+            
+            try {
+              if (window.parent !== window) {
+                messageBuffer.forEach(data => {
+                  window.parent.postMessage(data, '*');
+                });
+              }
+              messageBuffer = [];
+            } catch (e) {
+              console.warn('[ConsoleCapture] Failed to send messages:', e);
+            }
+          };
+          
+          const throttledSend = (data) => {
+            messageBuffer.push(data);
+            
+            if (sendTimeout) {
+              clearTimeout(sendTimeout);
+            }
+            
+            sendTimeout = setTimeout(sendBufferedMessages, 100); // Batch messages
+          };
           
           ['log', 'error', 'warn', 'info'].forEach(method => {
             console[method] = function(...args) {
               try {
                 const message = args.map(arg => {
                   try {
-                    return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+                    if (typeof arg === 'object' && arg !== null) {
+                      // Limit object stringification for performance
+                      if (arg.toString !== Object.prototype.toString) {
+                        return String(arg);
+                      }
+                      return JSON.stringify(arg, null, 2).slice(0, 1000); // Limit size
+                    }
+                    return String(arg);
                   } catch (e) {
-                    return '[Circular or Non-serializable Object]';
+                    return '[Non-serializable Object]';
                   }
                 }).join(' ');
                 
-                window.capturedLogs.push({
-                  type: method,
-                  message,
-                  timestamp: Date.now()
-                });
+                const logData = {
+                  type: 'console-' + method,
+                  message: message.slice(0, 500), // Limit message length
+                  timestamp: Date.now(),
+                  level: method
+                };
                 
-                // Send to parent window safely
-                if (window.parent !== window) {
-                  window.parent.postMessage({
-                    type: 'console-' + method,
-                    message,
-                    logs: window.capturedLogs
-                  }, '*');
+                window.capturedLogs.push(logData);
+                
+                // Keep only last 50 logs for performance
+                if (window.capturedLogs.length > 50) {
+                  window.capturedLogs = window.capturedLogs.slice(-50);
                 }
                 
+                throttledSend(logData);
                 originalConsole[method].apply(console, args);
               } catch (e) {
                 // Fallback to original console if anything fails
@@ -280,19 +401,21 @@ export class ContentRenderer {
             };
           });
           
-          // Enhanced error handling
+          // Enhanced error handling with better mobile support
           window.addEventListener('error', (event) => {
             try {
-              if (window.parent !== window) {
-                window.parent.postMessage({
-                  type: 'runtime-error',
-                  message: event.message || 'Unknown error',
-                  filename: event.filename || '',
-                  lineno: event.lineno || 0,
-                  colno: event.colno || 0,
-                  error: event.error ? event.error.stack : null
-                }, '*');
-              }
+              const errorData = {
+                type: 'runtime-error',
+                message: event.message || 'Unknown error',
+                filename: event.filename || '',
+                lineno: event.lineno || 0,
+                colno: event.colno || 0,
+                error: event.error ? event.error.stack : null,
+                timestamp: Date.now(),
+                userAgent: navigator.userAgent
+              };
+              
+              throttledSend(errorData);
             } catch (e) {
               // Silently fail if postMessage fails
             }
@@ -300,18 +423,29 @@ export class ContentRenderer {
           
           window.addEventListener('unhandledrejection', (event) => {
             try {
-              if (window.parent !== window) {
-                window.parent.postMessage({
-                  type: 'promise-rejection',
-                  message: event.reason ? String(event.reason) : 'Unhandled promise rejection'
-                }, '*');
-              }
+              const rejectionData = {
+                type: 'promise-rejection',
+                message: event.reason ? String(event.reason).slice(0, 500) : 'Unhandled promise rejection',
+                timestamp: Date.now()
+              };
+              
+              throttledSend(rejectionData);
             } catch (e) {
               // Silently fail if postMessage fails
             }
           });
+          
+          // Mobile-specific optimizations
+          if ('ontouchstart' in window) {
+            // Add touch event error handling
+            window.addEventListener('touchstart', function() {
+              // Touch start tracking for mobile debugging
+            }, { passive: true });
+          }
+          
         } catch (e) {
           // If anything fails in console setup, just continue
+          console.warn('[ConsoleCapture] Setup failed:', e);
         }
       })();
     `;
@@ -326,7 +460,7 @@ export class ContentRenderer {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>${content.title || 'React Component'}</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -335,7 +469,9 @@ export class ContentRenderer {
 </head>
 <body>
   <div id="root">
-    <div class="loading-display">Loading React component...</div>
+    <div class="loading-display">
+      <div>Loading React component...</div>
+    </div>
   </div>
   
   <script>
@@ -346,16 +482,19 @@ export class ContentRenderer {
     try {
       ${errorBoundary}
       
-      // Component code
+      // Component code with enhanced error handling
       ${content.code}
       
-      // Enhanced component rendering with multiple strategies
+      // Enhanced component rendering with multiple strategies and better error handling
       const rootElement = document.getElementById('root');
       
       const renderComponent = () => {
         try {
+          console.log('[React] Attempting to render component...');
+          
           // Strategy 1: Look for App component
           if (typeof App !== 'undefined') {
+            console.log('[React] Found App component, rendering...');
             ReactDOM.render(
               React.createElement(ErrorBoundary, null, React.createElement(App)),
               rootElement
@@ -365,6 +504,7 @@ export class ContentRenderer {
           
           // Strategy 2: Look for default export
           if (typeof module !== 'undefined' && module.exports && typeof module.exports.default !== 'undefined') {
+            console.log('[React] Found default export, rendering...');
             ReactDOM.render(
               React.createElement(ErrorBoundary, null, React.createElement(module.exports.default)),
               rootElement
@@ -377,7 +517,9 @@ export class ContentRenderer {
           let match;
           while ((match = componentRegex.exec(\`${escapedCode}\`)) !== null) {
             const componentName = match[1];
+            console.log('[React] Checking component:', componentName);
             if (typeof window[componentName] === 'function') {
+              console.log('[React] Found component function:', componentName);
               ReactDOM.render(
                 React.createElement(ErrorBoundary, null, React.createElement(window[componentName])),
                 rootElement
@@ -386,9 +528,10 @@ export class ContentRenderer {
             }
           }
           
+          console.warn('[React] No renderable component found');
           return false;
         } catch (e) {
-          console.error('Component rendering failed:', e);
+          console.error('[React] Component rendering failed:', e);
           return false;
         }
       };
@@ -396,16 +539,26 @@ export class ContentRenderer {
       // Try rendering with a delay to ensure all code is parsed
       setTimeout(() => {
         if (!renderComponent()) {
-          rootElement.innerHTML = '<div class="error-display"><h3>⚠️ No Renderable Component</h3><p>Could not find a valid React component. Please ensure you have an "App" component or properly exported component.</p></div>';
+          rootElement.innerHTML = \`
+            <div class="error-display">
+              <h3>⚠️ No Renderable Component</h3>
+              <p>Could not find a valid React component. Please ensure you have an "App" component or properly exported component.</p>
+              <details style="margin-top: 1rem;">
+                <summary style="cursor: pointer;">Debug Info</summary>
+                <pre style="margin-top: 0.5rem; font-size: 0.75rem;">Available globals: \${Object.keys(window).filter(k => k[0] === k[0].toUpperCase()).join(', ')}</pre>
+              </details>
+            </div>
+          \`;
         }
       }, 100);
       
     } catch (error) {
-      console.error('Failed to parse React component:', error);
+      console.error('[React] Failed to parse React component:', error);
       document.getElementById('root').innerHTML = \`
         <div class="error-display">
           <h3>⚠️ Parse Error</h3>
           <p>\${error.message}</p>
+          <button onclick="window.location.reload()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 0.25rem; cursor: pointer; min-height: 44px;">Retry</button>
         </div>
       \`;
     }

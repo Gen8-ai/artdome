@@ -41,7 +41,7 @@ const AIPreferences: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
-          <div>
+          <div className="text-black">
             <label className="text-sm font-medium text-foreground mb-2 block">
               AI Model
             </label>

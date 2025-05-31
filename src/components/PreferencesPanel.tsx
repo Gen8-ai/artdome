@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Settings, X } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -12,7 +12,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import ModelSelector from './ModelSelector';
-import PromptSelector from './PromptSelector';
 import { AIModel, AIPrompt } from '@/types/ai';
 
 interface AIParameters {
@@ -78,13 +77,6 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
             models={models || []}
             selectedModelId={selectedModelId}
             onModelChange={onModelChange}
-            disabled={disabled}
-          />
-          
-          <PromptSelector
-            prompts={prompts || []}
-            selectedPromptId={selectedPromptId}
-            onPromptChange={onPromptChange}
             disabled={disabled}
           />
           

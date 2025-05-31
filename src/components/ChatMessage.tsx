@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -81,7 +80,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                       language={match[1]}
                       PreTag="div"
                       className="rounded-lg"
-                      {...props}
                     >
                       {String(children).replace(/\n$/, '')}
                     </SyntaxHighlighter>

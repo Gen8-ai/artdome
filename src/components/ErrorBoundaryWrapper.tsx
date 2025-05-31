@@ -85,7 +85,7 @@ interface ErrorBoundaryWrapperProps {
 const ErrorBoundaryWrapper: React.FC<ErrorBoundaryWrapperProps> = ({ children }) => {
   const ErrorBoundary = errorBoundaryManager.createErrorBoundary(ErrorFallback);
   
-  return React.createElement(ErrorBoundary, {}, children);
+  return React.createElement(ErrorBoundary, { children });
 };
 
 export default ErrorBoundaryWrapper;

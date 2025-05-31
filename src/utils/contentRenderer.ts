@@ -1,3 +1,4 @@
+
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -184,8 +185,8 @@ export class ContentRenderer {
       // Analyze and install dependencies
       const dependencies = dependencyAnalyzer.analyzeCode(block.code);
       if (dependencies.length > 0) {
-        // Convert DependencyInfo objects to package names
-        const packageNames = dependencies.map(dep => dep.packageName);
+        // Convert DependencyInfo objects to package names by accessing the name property
+        const packageNames = dependencies.map(dep => dep.name);
         const installResult = await packageInstaller.installPackages(packageNames);
         if (!installResult.success) {
           console.warn('Some packages failed to install:', installResult.failedPackages);

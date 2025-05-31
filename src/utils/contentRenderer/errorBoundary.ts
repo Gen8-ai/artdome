@@ -1,3 +1,4 @@
+
 import React, { ErrorInfo } from 'react';
 import { aiGeneration } from './aiGeneration';
 
@@ -251,7 +252,7 @@ export class ErrorBoundaryManager {
 
       window.addEventListener('unhandledrejection', (event) => {
         this.reportError({
-          error: new Error(event.reason),
+          error: new Error(String(event.reason)),
           errorInfo: { componentStack: '' },
           componentStack: '',
           timestamp: Date.now()

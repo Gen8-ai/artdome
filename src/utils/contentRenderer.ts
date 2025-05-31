@@ -1,4 +1,3 @@
-
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -16,6 +15,7 @@ import { supabasePersistence } from './contentRenderer/supabasePersistence';
 import { realtimePreview } from './contentRenderer/realtimePreview';
 import { buildOptimizer } from './contentRenderer/buildOptimizer';
 import { errorBoundaryManager } from './contentRenderer/errorBoundary';
+import { e2bIntegration, E2BRenderResult } from './contentRenderer/e2bIntegration';
 
 export type { ContentBlock, RenderingOptions } from './contentRenderer/types';
 
@@ -114,6 +114,16 @@ export class ContentRenderer {
         return { status: 'rendered', previewUrl: null };
       }
     });
+
+    // Add E2B execution stage
+    this.pipelineSync.addStage({
+      name: 'e2bExecution',
+      dependencies: ['linter'],
+      execute: async () => {
+        console.log('E2B execution stage ready...');
+        return { status: 'ready', executor: 'e2b' };
+      }
+    });
   }
 
   detectContentType(code: string): 'html' | 'css' | 'javascript' | 'react' | 'artifact' {
@@ -158,6 +168,19 @@ export class ContentRenderer {
     } = options;
 
     try {
+      // Check if we should use E2B for this content
+      if (e2bIntegration.shouldUseE2B(block)) {
+        console.log('Using E2B execution for content type:', block.type);
+        const e2bResult = await e2bIntegration.renderWithE2B(block, {
+          timeout: 30000,
+          enableFileSystem: true
+        });
+        return e2bResult.html;
+      }
+
+      // Fall back to traditional iframe rendering for React/HTML content
+      console.log('Using traditional iframe rendering for content type:', block.type);
+
       // Execute full pipeline for comprehensive processing
       const pipelineResults = await this.executePipeline([
         'userInputRequest',
@@ -243,6 +266,34 @@ export class ContentRenderer {
     }
   }
 
+  // New E2B-specific methods
+  async executeCodeWithE2B(
+    code: string,
+    language?: string,
+    packages?: string[]
+  ): Promise<E2BRenderResult> {
+    const block: ContentBlock = {
+      type: 'artifact',
+      code,
+      title: `${language || 'Code'} Execution`
+    };
+
+    return await e2bIntegration.renderWithE2B(block, {
+      language: language as any,
+      packages,
+      enableFileSystem: true,
+      timeout: 30000
+    });
+  }
+
+  async executeMultiFileProject(
+    files: { [filename: string]: string },
+    entryPoint: string,
+    title?: string
+  ): Promise<E2BRenderResult> {
+    return await e2bIntegration.renderMultiFileProject(files, entryPoint, title);
+  }
+
   private getRequiredModules(type: string, options: RenderingOptions): string[] {
     const modules: string[] = [];
 
@@ -313,6 +364,7 @@ export class ContentRenderer {
   cleanup() {
     realtimePreview.cleanup();
     errorBoundaryManager.clearErrorReports();
+    e2bIntegration.cleanup();
   }
 }
 

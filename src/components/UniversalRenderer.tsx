@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
 import { pipelineManager } from '@/utils/pipelineManager';
+import { e2bIntegration } from '@/utils/contentRenderer/e2bIntegration';
 import ReactRenderer from './ReactRenderer';
 
 interface UniversalRendererProps {
@@ -21,11 +22,12 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isIframeMounted, setIsIframeMounted] = useState(false);
+  const [executionMethod, setExecutionMethod] = useState<'iframe' | 'e2b'>('iframe');
 
   useEffect(() => {
     const renderContent = async () => {
-      // Wait for iframe to be mounted
-      if (!isIframeMounted || !iframeRef.current) {
+      // Wait for iframe to be mounted for iframe rendering
+      if (executionMethod === 'iframe' && (!isIframeMounted || !iframeRef.current)) {
         console.log('Iframe not ready, waiting...');
         return;
       }
@@ -37,23 +39,45 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
 
         console.log('Starting content compilation for type:', block.type);
         
-        // Use pipeline manager to execute rendering steps
-        const htmlContent = await pipelineManager.executeStage('preview', async () => {
-          // Special handling for artifact type
-          if (block.type === 'artifact') {
-            return await renderArtifactContent(block);
-          } else {
-            return await contentRenderer.generateHtmlDocument(block, {
-              ...options,
-              useCompilation: true
-            });
-          }
-        });
+        // Determine execution method
+        const shouldUseE2B = e2bIntegration.shouldUseE2B(block);
+        const currentMethod = shouldUseE2B ? 'e2b' : 'iframe';
+        setExecutionMethod(currentMethod);
 
-        // Double-check the ref is still valid before setting srcdoc
-        if (iframeRef.current && htmlContent) {
-          iframeRef.current.srcdoc = htmlContent;
-          console.log('Content rendered successfully');
+        if (shouldUseE2B) {
+          console.log('Using E2B execution for secure code execution');
+          
+          // Use E2B for secure execution
+          const e2bResult = await e2bIntegration.renderWithE2B(block, {
+            timeout: 30000,
+            enableFileSystem: true
+          });
+
+          if (iframeRef.current) {
+            iframeRef.current.srcdoc = e2bResult.html;
+            console.log('E2B content rendered successfully');
+          }
+        } else {
+          console.log('Using traditional iframe rendering');
+          
+          // Use pipeline manager to execute rendering steps
+          const htmlContent = await pipelineManager.executeStage('preview', async () => {
+            // Special handling for artifact type
+            if (block.type === 'artifact') {
+              return await renderArtifactContent(block);
+            } else {
+              return await contentRenderer.generateHtmlDocument(block, {
+                ...options,
+                useCompilation: true
+              });
+            }
+          });
+
+          // Double-check the ref is still valid before setting srcdoc
+          if (iframeRef.current && htmlContent) {
+            iframeRef.current.srcdoc = htmlContent;
+            console.log('Content rendered successfully');
+          }
         }
       } catch (err) {
         console.error('Rendering error:', err);
@@ -92,15 +116,28 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         <div className="text-center">
           <h3 className="text-lg font-semibold mb-2 text-red-600">Rendering Error</h3>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              setError(null);
-              setIsLoading(false);
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={() => {
+                setError(null);
+                setIsLoading(false);
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mr-2"
+            >
+              Retry
+            </button>
+            {executionMethod === 'e2b' && (
+              <div className="text-sm text-gray-600 mt-2">
+                <p>E2B execution failed. This might be due to:</p>
+                <ul className="text-left mt-1 space-y-1">
+                  <li>• Missing E2B API key</li>
+                  <li>• Network connectivity issues</li>
+                  <li>• Code syntax errors</li>
+                  <li>• Execution timeout</li>
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -111,7 +148,14 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Compiling and rendering...</p>
+          <p className="text-muted-foreground">
+            {executionMethod === 'e2b' ? 'Executing code securely with E2B...' : 'Compiling and rendering...'}
+          </p>
+          {executionMethod === 'e2b' && (
+            <p className="text-xs text-gray-500 mt-2">
+              Secure execution environment • Multi-language support
+            </p>
+          )}
         </div>
       </div>
     );
@@ -125,7 +169,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       }}
       className="w-full h-full border-0"
       sandbox="allow-scripts allow-forms allow-same-origin"
-      title={`${block.type} content preview`}
+      title={`${block.type} content preview ${executionMethod === 'e2b' ? '(E2B Secure)' : ''}`}
     />
   );
 };
@@ -239,7 +283,6 @@ async function renderArtifactContent(block: ContentBlock): Promise<string> {
 </html>`;
 }
 
-// Helper function to create error content
 function createErrorContent(errorMessage: string): string {
   return `
 <!DOCTYPE html>

@@ -1,4 +1,3 @@
-
 import React, { ErrorInfo } from 'react';
 import { aiGeneration } from './aiGeneration';
 

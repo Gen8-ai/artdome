@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Bot, Settings, User, LogOut, Sliders } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
-import ModelSelector from './ModelSelector';
 import PreferencesPanel from './PreferencesPanel';
 
 const AppSidebar = () => {
@@ -51,13 +49,6 @@ const AppSidebar = () => {
           <Bot className="w-6 h-6 text-primary" />
           <span className="font-semibold text-lg">AI Assistant</span>
         </div>
-        
-        <ModelSelector
-          models={models || []}
-          selectedModelId={selectedModelId}
-          onModelChange={setSelectedModelId}
-          disabled={modelsLoading}
-        />
       </SidebarHeader>
       
       <SidebarContent className="p-4">

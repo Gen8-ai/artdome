@@ -64,6 +64,19 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  /* System theme with mixed-dimmed effect */
+  html[data-system-theme="true"] {
+    transition: filter 0.3s ease;
+  }
+
+  html[data-system-theme="true"].dark {
+    filter: brightness(0.9) contrast(1.1);
+  }
+
+  html[data-system-theme="true"].light {
+    filter: brightness(0.95) contrast(1.05);
+  }
 }
 
 @layer base {

@@ -15,6 +15,7 @@ export interface RenderingOptions {
   enableErrorBoundary?: boolean;
   sandboxPolicy?: string[];
   timeout?: number;
+  useCompilation?: boolean;
 }
 
 export class ContentRenderer {
@@ -172,8 +173,13 @@ export class ContentRenderer {
   }
 
   // Standardized HTML template generator
-  generateHtmlDocument(content: ContentBlock, options: RenderingOptions = {}): string {
-    const { theme = 'light', enableConsoleCapture = true, enableErrorBoundary = true } = options;
+  async generateHtmlDocument(content: ContentBlock, options: RenderingOptions = {}): Promise<string> {
+    const { 
+      theme = 'light', 
+      enableConsoleCapture = true, 
+      enableErrorBoundary = true,
+      useCompilation = true
+    } = options;
     
     const baseStyles = this.getBaseStyles(theme);
     const errorBoundaryScript = enableErrorBoundary ? this.getErrorBoundaryScript() : '';
@@ -181,13 +187,17 @@ export class ContentRenderer {
     
     switch (content.type) {
       case 'react':
-        return this.generateReactDocument(content, baseStyles, errorBoundaryScript, consoleScript);
+        return useCompilation 
+          ? await this.generateCompiledReactDocument(content, baseStyles, errorBoundaryScript, consoleScript)
+          : this.generateReactDocument(content, baseStyles, errorBoundaryScript, consoleScript);
       case 'html':
         return this.generatePlainHtmlDocument(content, baseStyles, consoleScript);
       case 'css':
         return this.generateCssDocument(content, baseStyles);
       case 'javascript':
-        return this.generateJsDocument(content, baseStyles, consoleScript);
+        return useCompilation
+          ? await this.generateCompiledJsDocument(content, baseStyles, consoleScript)
+          : this.generateJsDocument(content, baseStyles, consoleScript);
       case 'mixed':
         return this.generateMixedDocument(content, baseStyles, consoleScript);
       case 'canvas':
@@ -781,6 +791,157 @@ export class ContentRenderer {
   </div>
 </body>
 </html>`;
+  }
+
+  private async generateCompiledReactDocument(content: ContentBlock, baseStyles: string, errorBoundary: string, consoleScript: string): Promise<string> {
+    const { codeCompiler } = await import('./codeCompiler');
+    
+    try {
+      const compilationResult = await codeCompiler.compileCode(content.code, 'react');
+      
+      if (compilationResult.error) {
+        console.warn('Compilation failed, falling back to client-side:', compilationResult.error);
+        return this.generateReactDocument(content, baseStyles, errorBoundary, consoleScript);
+      }
+
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>${content.title || 'React Component'}</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div id="root">
+    <div class="loading-display">
+      <div>Loading compiled React component...</div>
+    </div>
+  </div>
+  
+  <script>
+    ${consoleScript}
+    
+    // Error boundary component
+    ${errorBoundary}
+  </script>
+  
+  <script>
+    try {
+      ${compilationResult.compiledCode}
+      
+      // Enhanced component rendering
+      const rootElement = document.getElementById('root');
+      
+      const renderComponent = () => {
+        try {
+          console.log('[React] Attempting to render compiled component...');
+          
+          if (typeof App !== 'undefined') {
+            console.log('[React] Found App component, rendering...');
+            ReactDOM.render(
+              React.createElement(ErrorBoundary, null, React.createElement(App)),
+              rootElement
+            );
+            return true;
+          }
+          
+          // Try to find any component function
+          const componentRegex = /(?:const\\s+|function\\s+)(\\w+)/g;
+          let match;
+          while ((match = componentRegex.exec(\`${compilationResult.compiledCode.replace(/`/g, '\\`')}\`)) !== null) {
+            const componentName = match[1];
+            if (typeof window[componentName] === 'function') {
+              console.log('[React] Found component function:', componentName);
+              ReactDOM.render(
+                React.createElement(ErrorBoundary, null, React.createElement(window[componentName])),
+                rootElement
+              );
+              return true;
+            }
+          }
+          
+          console.warn('[React] No renderable component found');
+          return false;
+        } catch (e) {
+          console.error('[React] Component rendering failed:', e);
+          return false;
+        }
+      };
+      
+      setTimeout(() => {
+        if (!renderComponent()) {
+          rootElement.innerHTML = \`
+            <div class="error-display">
+              <h3>⚠️ No Renderable Component</h3>
+              <p>Could not find a valid React component after compilation.</p>
+            </div>
+          \`;
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('[React] Failed to execute compiled code:', error);
+      document.getElementById('root').innerHTML = \`
+        <div class="error-display">
+          <h3>⚠️ Execution Error</h3>
+          <p>\${error.message}</p>
+          <button onclick="window.location.reload()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 0.25rem; cursor: pointer; min-height: 44px;">Retry</button>
+        </div>
+      \`;
+    }
+  </script>
+</body>
+</html>`;
+    } catch (error) {
+      console.error('Compilation service error:', error);
+      return this.generateReactDocument(content, baseStyles, errorBoundary, consoleScript);
+    }
+  }
+
+  private async generateCompiledJsDocument(content: ContentBlock, baseStyles: string, consoleScript: string): Promise<string> {
+    const { codeCompiler } = await import('./codeCompiler');
+    
+    try {
+      const compilationResult = await codeCompiler.compileCode(content.code, 'javascript');
+      
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${content.title || 'JavaScript Preview'}</title>
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div id="output" class="content-wrapper">
+    <h1>JavaScript Output</h1>
+    <div id="console-output"></div>
+  </div>
+  
+  <script>${consoleScript}</script>
+  <script>
+    try {
+      ${compilationResult.compiledCode}
+    } catch (error) {
+      document.getElementById('output').innerHTML += \`
+        <div class="error-display">
+          <h3>⚠️ JavaScript Error</h3>
+          <p>\${error.message}</p>
+        </div>
+      \`;
+    }
+  </script>
+</body>
+</html>`;
+    } catch (error) {
+      console.error('JavaScript compilation error:', error);
+      return this.generateJsDocument(content, baseStyles, consoleScript);
+    }
   }
 }
 

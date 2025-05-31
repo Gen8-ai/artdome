@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useContentParser } from '@/hooks/useContentParser';
 import UniversalRenderer from './UniversalRenderer';
@@ -31,6 +30,7 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
   const { blocks, isLoading, error, hasContent, contentTypes } = useContentParser(content);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -99,12 +99,14 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isCompiling) {
     return (
       <div className={`fixed inset-0 bg-background z-50 flex items-center justify-center ${isFullscreen ? 'p-0' : isMobile ? 'p-2' : 'p-4'}`}>
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Parsing content...</p>
+          <p className="text-muted-foreground">
+            {isLoading ? 'Parsing content...' : 'Compiling code...'}
+          </p>
         </div>
       </div>
     );
@@ -155,6 +157,8 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
               <span>{blocks.length} block(s)</span>
               <span>•</span>
               <span className="truncate">{contentTypes.join(', ')}</span>
+              <span>•</span>
+              <span className="text-green-600">Server Compiled</span>
             </div>
           </div>
         </div>
@@ -247,8 +251,11 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
             options={{
               theme: 'light',
               enableConsoleCapture: true,
-              enableErrorBoundary: true
+              enableErrorBoundary: true,
+              useCompilation: true
             }}
+            onCompilationStart={() => setIsCompiling(true)}
+            onCompilationEnd={() => setIsCompiling(false)}
           />
         )}
       </div>

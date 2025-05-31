@@ -1,4 +1,3 @@
-
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -13,6 +12,9 @@ import { aiGeneration, AIGenerationRequest } from './contentRenderer/aiGeneratio
 import { packageResolver } from './contentRenderer/packageResolver';
 import { packageInstaller } from './contentRenderer/packageInstaller';
 import { supabasePersistence } from './contentRenderer/supabasePersistence';
+import { realtimePreview } from './contentRenderer/realtimePreview';
+import { buildOptimizer } from './contentRenderer/buildOptimizer';
+import { errorBoundaryManager } from './contentRenderer/errorBoundary';
 
 export type { ContentBlock, RenderingOptions } from './contentRenderer/types';
 
@@ -182,7 +184,9 @@ export class ContentRenderer {
       // Analyze and install dependencies
       const dependencies = dependencyAnalyzer.analyzeCode(block.code);
       if (dependencies.length > 0) {
-        const installResult = await packageInstaller.installPackages(dependencies);
+        // Convert DependencyInfo objects to package names
+        const packageNames = dependencies.map(dep => dep.packageName);
+        const installResult = await packageInstaller.installPackages(packageNames);
         if (!installResult.success) {
           console.warn('Some packages failed to install:', installResult.failedPackages);
         }
@@ -258,6 +262,56 @@ export class ContentRenderer {
 
   setupRealtimeSync(sessionId: string, onUpdate: (session: any) => void) {
     return supabasePersistence.setupRealtimeSync(sessionId, onUpdate);
+  }
+
+  // New Phase 3 methods
+
+  // Real-time preview system
+  createRealtimeSession(sessionId: string, onUpdate: (update: any) => void) {
+    return realtimePreview.createRealtimeChannel(sessionId, onUpdate);
+  }
+
+  async enableHMR(sessionId: string, moduleId: string, newCode: string) {
+    await realtimePreview.triggerHMR(sessionId, moduleId, newCode);
+  }
+
+  // Build optimization
+  async optimizeForProduction(code: string) {
+    return await buildOptimizer.createProductionBuild(code);
+  }
+
+  async analyzeBundleSize(code: string) {
+    return await buildOptimizer.analyzeBundleSize(code, {
+      enableCodeSplitting: true,
+      enableMinification: true,
+      enableTreeShaking: true,
+      enableLazyLoading: true,
+      bundleAnalysis: true,
+      targetBrowsers: ['> 1%', 'last 2 versions']
+    });
+  }
+
+  // Enhanced error handling
+  createErrorBoundary(fallbackComponent?: React.ComponentType<{ error: Error; retry: () => void }>) {
+    return errorBoundaryManager.createErrorBoundary(fallbackComponent);
+  }
+
+  async getErrorSuggestions(error: Error, code?: string) {
+    return await errorBoundaryManager.generateErrorSuggestions(error, code);
+  }
+
+  async attemptAutoRecovery(error: Error, code: string) {
+    return await errorBoundaryManager.attemptAutoRecovery(error, code);
+  }
+
+  // Performance monitoring
+  getPerformanceMetrics() {
+    return realtimePreview.getPerformanceMetrics();
+  }
+
+  cleanup() {
+    realtimePreview.cleanup();
+    errorBoundaryManager.clearErrorReports();
   }
 }
 

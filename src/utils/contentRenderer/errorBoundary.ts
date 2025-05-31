@@ -1,3 +1,4 @@
+
 import React, { ErrorInfo } from 'react';
 import { aiGeneration } from './aiGeneration';
 
@@ -250,10 +251,15 @@ export class ErrorBoundaryManager {
       });
 
       window.addEventListener('unhandledrejection', (event) => {
-        // Convert the rejection reason to a proper Error object
-        const errorMessage = typeof event.reason === 'string' 
-          ? event.reason 
-          : event.reason?.message || String(event.reason);
+        // Convert the rejection reason to a proper Error object and ensure it's a string
+        let errorMessage: string;
+        if (typeof event.reason === 'string') {
+          errorMessage = event.reason;
+        } else if (event.reason && typeof event.reason === 'object' && 'message' in event.reason) {
+          errorMessage = String(event.reason.message);
+        } else {
+          errorMessage = String(event.reason);
+        }
           
         this.reportError({
           error: new Error(errorMessage),

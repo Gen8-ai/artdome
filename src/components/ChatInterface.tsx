@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import ChatMessage from './ChatMessage';
 import ArtifactPreview from './ArtifactPreview';
-import AISettings from './AISettings';
+import PreferencesPanel from './PreferencesPanel';
+import InputControls from './InputControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 
@@ -144,7 +145,7 @@ const ChatInterface: React.FC = () => {
           <div className="flex items-center space-x-3">
             <h1 className="text-lg lg:text-xl font-semibold text-foreground">AI Assistant</h1>
           </div>
-          <AISettings
+          <PreferencesPanel
             models={models || []}
             prompts={prompts || []}
             selectedModelId={selectedModelId}
@@ -198,6 +199,15 @@ const ChatInterface: React.FC = () => {
 
         {/* Input Area */}
         <div className="p-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+          <InputControls
+            models={models || []}
+            prompts={prompts || []}
+            selectedModelId={selectedModelId}
+            selectedPromptId={selectedPromptId}
+            onModelChange={setSelectedModelId}
+            onPromptChange={setSelectedPromptId}
+            disabled={isLoading || modelsLoading || promptsLoading}
+          />
           <div className="flex items-end space-x-2">
             <div className="flex-1 relative">
               <Textarea

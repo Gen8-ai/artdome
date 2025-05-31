@@ -18,13 +18,13 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 }) => {
   return (
     <div className="flex flex-col space-y-2">
-      <label className="text-sm font-medium text-white/80">AI Model</label>
+      <label className="text-sm font-medium">AI Model</label>
       <Select
         value={selectedModelId}
         onValueChange={onModelChange}
         disabled={disabled}
       >
-        <SelectTrigger className="bg-white/10 border-white/20 text-white">
+        <SelectTrigger>
           <SelectValue placeholder="Select a model" />
         </SelectTrigger>
         <SelectContent>

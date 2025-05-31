@@ -25,13 +25,13 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
 
   return (
     <div className="flex flex-col space-y-2">
-      <label className="text-sm font-medium text-white/80">System Prompt</label>
+      <label className="text-sm font-medium">System Prompt</label>
       <Select
         value={selectedPromptId}
         onValueChange={onPromptChange}
         disabled={disabled}
       >
-        <SelectTrigger className="bg-white/10 border-white/20 text-white">
+        <SelectTrigger>
           <SelectValue placeholder="Select a prompt template" />
         </SelectTrigger>
         <SelectContent>

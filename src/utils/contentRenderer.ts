@@ -109,6 +109,68 @@ export class ContentRenderer {
     return (hasHtml && hasCss) || (hasHtml && hasJs) || (hasCss && hasJs);
   }
 
+  private extractImports(code: string): { imports: string[], cleanCode: string } {
+    const importLines: string[] = [];
+    const lines = code.split('\n');
+    let inImportBlock = false;
+    const cleanLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Detect import statements
+      if (line.startsWith('import ') && !inImportBlock) {
+        inImportBlock = true;
+        importLines.push(lines[i]);
+      } else if (inImportBlock && (line.startsWith('import ') || line === '' || line.startsWith('//'))) {
+        if (line.startsWith('import ')) {
+          importLines.push(lines[i]);
+        }
+        // Skip empty lines and comments in import block
+      } else {
+        inImportBlock = false;
+        cleanLines.push(lines[i]);
+      }
+    }
+
+    return {
+      imports: importLines,
+      cleanCode: cleanLines.join('\n').trim()
+    };
+  }
+
+  private transformImportsToGlobals(imports: string[]): string {
+    // Transform import statements to use global React/ReactDOM
+    const transformations: string[] = [];
+    
+    imports.forEach(importLine => {
+      // Handle React default import: import React from 'react'
+      const reactDefaultMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react['"]/);
+      if (reactDefaultMatch && reactDefaultMatch[1] !== 'React') {
+        transformations.push(`const ${reactDefaultMatch[1]} = React;`);
+      }
+      
+      // Handle React named imports: import { useState, useEffect } from 'react'
+      const reactNamedMatch = importLine.match(/import\s+\{([^}]+)\}\s+from\s+['"]react['"]/);
+      if (reactNamedMatch) {
+        const namedImports = reactNamedMatch[1].split(',').map(imp => imp.trim());
+        namedImports.forEach(namedImport => {
+          const [importName, alias] = namedImport.split(' as ').map(s => s.trim());
+          const finalName = alias || importName;
+          transformations.push(`const ${finalName} = React.${importName};`);
+        });
+      }
+      
+      // Handle ReactDOM imports: import ReactDOM from 'react-dom'
+      const reactDOMMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react-dom['"]/);
+      if (reactDOMMatch && reactDOMMatch[1] !== 'ReactDOM') {
+        transformations.push(`const ${reactDOMMatch[1]} = ReactDOM;`);
+      }
+    });
+    
+    return transformations.join('\n');
+  }
+
   // Standardized HTML template generator
   generateHtmlDocument(content: ContentBlock, options: RenderingOptions = {}): string {
     const { theme = 'light', enableConsoleCapture = true, enableErrorBoundary = true } = options;
@@ -452,8 +514,14 @@ export class ContentRenderer {
   }
 
   private generateReactDocument(content: ContentBlock, baseStyles: string, errorBoundary: string, consoleScript: string): string {
+    // Extract imports and clean code
+    const { imports, cleanCode } = this.extractImports(content.code);
+    
+    // Transform imports to use global React/ReactDOM
+    const globalTransforms = this.transformImportsToGlobals(imports);
+    
     // Escape content code for safe injection
-    const escapedCode = content.code.replace(/`/g, '\\`').replace(/\${/g, '\\${');
+    const escapedCode = cleanCode.replace(/`/g, '\\`').replace(/\${/g, '\\${');
     
     return `
 <!DOCTYPE html>
@@ -479,11 +547,15 @@ export class ContentRenderer {
   </script>
   
   <script type="text/babel">
+    // Global React setup - imports are handled at top level
+    ${globalTransforms}
+    
+    // Error boundary component
+    ${errorBoundary}
+    
+    // Component code (imports removed and handled above)
     try {
-      ${errorBoundary}
-      
-      // Component code with enhanced error handling
-      ${content.code}
+      ${cleanCode}
       
       // Enhanced component rendering with multiple strategies and better error handling
       const rootElement = document.getElementById('root');

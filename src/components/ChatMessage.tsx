@@ -10,8 +10,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface Message {
   id: string;
+  role: 'user' | 'assistant';
   content: string;
-  isUser: boolean;
   timestamp: Date;
   artifact?: any;
   mode?: string;
@@ -29,20 +29,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
   };
 
   const isDarkMode = document.documentElement.classList.contains('dark');
+  const isUser = message.role === 'user';
 
   return (
-    <div className={`flex group ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[85%] space-x-3 ${message.isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+    <div className={`flex group ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex max-w-[85%] space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
         
         {/* Avatar */}
         <div className="flex-shrink-0">
           <Avatar className="w-10 h-10">
             <AvatarFallback className={`${
-              message.isUser 
+              isUser 
                 ? 'bg-primary text-primary-foreground' 
                 : 'bg-muted text-muted-foreground'
             }`}>
-              {message.isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+              {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -51,14 +52,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
         <div className="flex-1 space-y-2">
           
           {/* Message Header */}
-          <div className={`flex items-center space-x-2 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+          <div className={`flex items-center space-x-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
             <span className="text-sm font-medium text-foreground">
-              {message.isUser ? 'You' : 'AI Assistant'}
+              {isUser ? 'You' : 'AI Assistant'}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatTime(message.timestamp)}
             </span>
-            {message.mode && !message.isUser && (
+            {message.mode && !isUser && (
               <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                 {message.mode}
               </span>
@@ -67,12 +68,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
 
           {/* Message Bubble */}
           <div className={`rounded-2xl p-4 ${
-            message.isUser 
+            isUser 
               ? 'bg-primary text-primary-foreground' 
               : 'bg-muted/50 border border-border'
           }`}>
             <div className={`prose prose-sm max-w-none ${
-              message.isUser 
+              isUser 
                 ? 'prose-invert' 
                 : 'prose-neutral dark:prose-invert'
             }`}>
@@ -101,7 +102,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                       </div>
                     ) : (
                       <code className={`px-1.5 py-0.5 rounded text-sm font-mono ${
-                        message.isUser 
+                        isUser 
                           ? 'bg-primary-foreground/20' 
                           : 'bg-muted'
                       }`} {...props}>
@@ -119,7 +120,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                   blockquote: ({ children }) => (
                     <blockquote className={`border-l-4 pl-4 italic my-4 ${
-                      message.isUser 
+                      isUser 
                         ? 'border-primary-foreground/30 bg-primary-foreground/10' 
                         : 'border-primary bg-muted/50'
                     } rounded-r-lg py-2`}>
@@ -137,7 +138,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
               <div className="mt-4 pt-4 border-t border-border/20">
                 <Button
                   onClick={onArtifactClick}
-                  variant={message.isUser ? "secondary" : "outline"}
+                  variant={isUser ? "secondary" : "outline"}
                   size="sm"
                   className="flex items-center space-x-2"
                 >

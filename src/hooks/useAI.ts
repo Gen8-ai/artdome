@@ -5,9 +5,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { AIModel, AIPrompt } from '@/types/ai';
 import { useToast } from '@/hooks/use-toast';
 
+interface AIParameters {
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  frequency_penalty: number;
+  presence_penalty: number;
+}
+
 export const useAI = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // State management for AI settings
+  const [selectedModelId, setSelectedModelId] = useState<string>('gpt-4o-mini');
+  const [selectedPromptId, setSelectedPromptId] = useState<string>('');
+  const [parameters, setParameters] = useState<AIParameters>({
+    temperature: 0.7,
+    max_tokens: 1000,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  });
   
   // Fetch available AI models
   const { data: models, isLoading: modelsLoading } = useQuery({
@@ -73,5 +92,11 @@ export const useAI = () => {
     promptsLoading,
     sendMessage,
     isLoading: sendMessage.isPending,
+    selectedModelId,
+    selectedPromptId,
+    parameters,
+    setSelectedModelId,
+    setSelectedPromptId,
+    setParameters,
   };
 };

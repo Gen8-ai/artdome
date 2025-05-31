@@ -1,5 +1,5 @@
 
-import { CodeInterpreter } from '@e2b/code-interpreter';
+import CodeInterpreter from '@e2b/code-interpreter';
 import { E2BConfig, SupportedLanguage, detectLanguage, defaultE2BConfig } from './e2bConfig';
 
 export interface ExecutionResult {

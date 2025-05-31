@@ -1,3 +1,4 @@
+
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -180,7 +181,7 @@ export class ContentRenderer {
 <body>
   <div class="error-container">
     <h3>⚠️ Template Error</h3>
-    <p>${errorMessage}</p>
+    <p>${this.escapeHtml(errorMessage)}</p>
   </div>
 </body>
 </html>`;
@@ -208,10 +209,10 @@ export class ContentRenderer {
     const tailwindCSS = includeTailwind ? this.getTailwindCSS() : '';
     const themeClasses = theme === 'dark' ? 'dark' : '';
 
-    // Safely escape the code for injection into JavaScript - this fixes the syntax error
+    // CRITICAL: Always use JSON.stringify for ALL code injection to prevent syntax errors
     const safeCode = JSON.stringify(code);
     
-    // Pre-compute component detection pattern safely
+    // Pre-compute component detection safely
     const componentPattern = /(?:function|const)\s+([A-Z]\w*)\s*[=(]/;
     const componentMatch = code.match(componentPattern);
     const potentialComponentName = componentMatch ? componentMatch[1] : null;
@@ -230,7 +231,7 @@ export class ContentRenderer {
     ${tailwindCSS}
     ${additionalCSS}
     
-    /* Custom CSS variables for theming */
+    /* CSS variables for theming */
     :root {
       --background: 0 0% 100%;
       --foreground: 222.2 84% 4.9%;
@@ -288,117 +289,155 @@ export class ContentRenderer {
   <div id="root">${type === 'html' ? this.escapeHtml(code) : ''}</div>
   
   ${type === 'react' || type === 'javascript' ? `
-    <!-- Load React libraries in correct order with proper UMD builds -->
+    <!-- Load React libraries with proper error handling -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Setup global environment BEFORE other scripts -->
+    <!-- Setup global environment with proper error handling -->
     <script>
-      // Ensure React is properly available globally
-      window.React = React;
-      window.ReactDOM = ReactDOM;
-      
-      // Setup module compatibility
-      window.exports = {};
-      window.module = { exports: {} };
-      
-      // Mock require for compatibility - this prevents require errors
-      window.require = function(module) {
-        if (module === 'react') return window.React;
-        if (module === 'react-dom') return window.ReactDOM;
-        console.warn('Module not available:', module);
-        return {};
-      };
-      
-      ${includeLucideIcons ? `
-      // Setup Lucide icons globally (will be loaded after)
-      window.setupLucideIcons = function() {
-        if (window.LucideReact) {
-          // Common icons as globals
-          const iconNames = ['Home', 'Settings', 'User', 'Search', 'Menu', 'X', 'Plus', 'Minus', 'Edit', 'Delete', 'Save', 'Cancel', 'Check', 'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'ArrowUp', 'ArrowDown'];
-          iconNames.forEach(iconName => {
-            if (window.LucideReact[iconName]) {
-              window[iconName] = window.LucideReact[iconName];
-            }
-          });
+      try {
+        // Ensure React is available globally
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+          throw new Error('React libraries failed to load');
         }
-      };
-      ` : ''}
-      
-      ${includeShadcnUI ? `
-      // Setup shadcn/ui components globally
-      window.ShadcnUI = {
-        Button: function({ children, className = '', variant = 'default', size = 'default', ...props }) {
-          const baseClasses = 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
-          const variantClasses = {
-            default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-            destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-            outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-            secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-            ghost: 'hover:bg-accent hover:text-accent-foreground',
-            link: 'text-primary underline-offset-4 hover:underline'
-          };
-          const sizeClasses = {
-            default: 'h-10 px-4 py-2',
-            sm: 'h-9 rounded-md px-3',
-            lg: 'h-11 rounded-md px-8',
-            icon: 'h-10 w-10'
-          };
-          
-          return React.createElement('button', {
-            className: \`\${baseClasses} \${variantClasses[variant]} \${sizeClasses[size]} \${className}\`,
-            ...props
-          }, children);
-        }
-      };
-      ` : ''}
-      
-      // Error boundary component
-      window.ErrorBoundary = class extends React.Component {
-        constructor(props) {
-          super(props);
-          this.state = { hasError: false, error: null };
-        }
-
-        static getDerivedStateFromError(error) {
-          return { hasError: true, error: error.message };
-        }
-
-        componentDidCatch(error, errorInfo) {
-          console.error('React Error Boundary caught an error:', error, errorInfo);
-        }
-
-        render() {
-          if (this.state.hasError) {
-            return React.createElement('div', {
-              className: 'error-display'
-            }, [
-              React.createElement('h3', { key: 'title' }, '⚠️ Component Error'),
-              React.createElement('p', { key: 'message' }, this.state.error)
-            ]);
+        
+        window.React = React;
+        window.ReactDOM = ReactDOM;
+        
+        // Setup module compatibility
+        window.exports = {};
+        window.module = { exports: {} };
+        
+        // Mock require function
+        window.require = function(module) {
+          if (module === 'react') return window.React;
+          if (module === 'react-dom') return window.ReactDOM;
+          console.warn('Module not available:', module);
+          return {};
+        };
+        
+        ${includeLucideIcons ? `
+        // Setup Lucide icons placeholder
+        window.setupLucideIcons = function() {
+          if (window.LucideReact) {
+            const iconNames = ['Home', 'Settings', 'User', 'Search', 'Menu', 'X', 'Plus', 'Minus', 'Edit', 'Delete', 'Save', 'Cancel', 'Check', 'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'ArrowUp', 'ArrowDown'];
+            iconNames.forEach(iconName => {
+              if (window.LucideReact[iconName]) {
+                window[iconName] = window.LucideReact[iconName];
+              }
+            });
           }
-          return this.props.children;
-        }
-      };
+        };
+        ` : ''}
+        
+        ${includeShadcnUI ? `
+        // Setup shadcn/ui components
+        window.ShadcnUI = {
+          Button: function({ children, className = '', variant = 'default', size = 'default', ...props }) {
+            const baseClasses = 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+            const variantClasses = {
+              default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+              destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+              outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+              secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+              ghost: 'hover:bg-accent hover:text-accent-foreground',
+              link: 'text-primary underline-offset-4 hover:underline'
+            };
+            const sizeClasses = {
+              default: 'h-10 px-4 py-2',
+              sm: 'h-9 rounded-md px-3',
+              lg: 'h-11 rounded-md px-8',
+              icon: 'h-10 w-10'
+            };
+            
+            return React.createElement('button', {
+              className: \`\${baseClasses} \${variantClasses[variant]} \${sizeClasses[size]} \${className}\`,
+              ...props
+            }, children);
+          }
+        };
+        ` : ''}
+        
+        // Enhanced Error boundary
+        window.ErrorBoundary = class extends React.Component {
+          constructor(props) {
+            super(props);
+            this.state = { hasError: false, error: null, errorInfo: null };
+          }
+
+          static getDerivedStateFromError(error) {
+            return { hasError: true, error: error.message };
+          }
+
+          componentDidCatch(error, errorInfo) {
+            console.error('React Error Boundary caught an error:', error, errorInfo);
+            this.setState({ errorInfo: errorInfo.componentStack });
+          }
+
+          render() {
+            if (this.state.hasError) {
+              return React.createElement('div', {
+                className: 'error-display'
+              }, [
+                React.createElement('h3', { key: 'title' }, '⚠️ Component Error'),
+                React.createElement('p', { key: 'message' }, this.state.error),
+                React.createElement('details', { key: 'details' }, [
+                  React.createElement('summary', { key: 'summary' }, 'Error Details'),
+                  React.createElement('pre', { key: 'stack', style: { fontSize: '12px', marginTop: '8px' } }, this.state.errorInfo)
+                ])
+              ]);
+            }
+            return this.props.children;
+          }
+        };
+        
+        console.log('Global environment setup complete');
+      } catch (setupError) {
+        console.error('Setup error:', setupError);
+        document.getElementById('root').innerHTML = '<div class="error-display"><h3>⚠️ Setup Error</h3><p>' + setupError.message + '</p></div>';
+      }
     </script>
     
     ${includeLucideIcons ? `
-    <!-- Load Lucide icons and setup -->
-    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js" onload="window.setupLucideIcons && window.setupLucideIcons()"></script>
-    ` : ''}
-    
-    <!-- User code execution -->
+    <!-- Load Lucide icons with error handling -->
     <script>
       try {
-        // Safely execute user code using JSON.stringify to prevent injection
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js';
+        script.onload = function() {
+          if (window.setupLucideIcons) window.setupLucideIcons();
+        };
+        script.onerror = function() {
+          console.warn('Failed to load Lucide icons');
+        };
+        document.head.appendChild(script);
+      } catch (iconError) {
+        console.warn('Icon loading error:', iconError);
+      }
+    </script>
+    ` : ''}
+    
+    <!-- User code execution with comprehensive error handling -->
+    <script>
+      try {
+        // Wait for all dependencies to be ready
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+          throw new Error('React dependencies not loaded');
+        }
+        
+        // Execute user code safely using JSON.stringify escaped content
         const userCode = ${safeCode};
-        eval(userCode);
+        console.log('Executing user code...');
+        
+        // Use Function constructor for safer code execution
+        const executeCode = new Function('React', 'ReactDOM', userCode);
+        executeCode(React, ReactDOM);
         
         // Auto-detect and render component
         const rootElement = document.getElementById('root');
         let ComponentToRender = null;
         
-        // Try different component names
+        // Try different component detection strategies
         if (typeof App !== 'undefined') {
           ComponentToRender = App;
         } else if (typeof Component !== 'undefined') {
@@ -406,33 +445,53 @@ export class ContentRenderer {
         } else if (${safeComponentName} && typeof window[${safeComponentName}] !== 'undefined') {
           ComponentToRender = window[${safeComponentName}];
         } else {
-          // Try to find any function that looks like a React component
+          // Scan global scope for React components
           const globalNames = Object.getOwnPropertyNames(window);
           for (const name of globalNames) {
             if (/^[A-Z]/.test(name) && typeof window[name] === 'function') {
-              ComponentToRender = window[name];
-              break;
+              try {
+                // Test if it's a valid React component
+                const testElement = React.createElement(window[name]);
+                if (testElement) {
+                  ComponentToRender = window[name];
+                  console.log('Found component:', name);
+                  break;
+                }
+              } catch (e) {
+                // Not a valid React component, continue
+              }
             }
           }
         }
         
         if (ComponentToRender && typeof ComponentToRender === 'function') {
+          console.log('Rendering component...');
           ReactDOM.render(
-            React.createElement(window.ErrorBoundary, null, React.createElement(ComponentToRender)),
+            React.createElement(window.ErrorBoundary, null, 
+              React.createElement(ComponentToRender)
+            ),
             rootElement
           );
+          console.log('Component rendered successfully');
         } else {
-          rootElement.innerHTML = '<div class="error-display"><h3>⚠️ No Component Found</h3><p>Make sure to define a React component function (e.g., App, Component, or any function starting with uppercase).</p></div>';
+          console.warn('No valid React component found');
+          rootElement.innerHTML = '<div class="error-display"><h3>⚠️ No Component Found</h3><p>Make sure to define a React component function (e.g., App, Component, or any function starting with uppercase).</p><p>Available globals: ' + Object.getOwnPropertyNames(window).filter(n => /^[A-Z]/.test(n)).join(', ') + '</p></div>';
         }
       } catch (error) {
         console.error('Failed to render React component:', error);
-        document.getElementById('root').innerHTML = \`
-          <div class="error-display">
-            <h3>⚠️ Render Error</h3>
-            <p>\${error.message}</p>
-            <pre style="font-size: 12px; margin-top: 8px;">\${error.stack}</pre>
-          </div>
-        \`;
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.innerHTML = \`
+            <div class="error-display">
+              <h3>⚠️ Render Error</h3>
+              <p>\${error.message}</p>
+              <details style="margin-top: 8px;">
+                <summary>Error Stack</summary>
+                <pre style="font-size: 12px; margin-top: 8px; white-space: pre-wrap;">\${error.stack || 'No stack trace available'}</pre>
+              </details>
+            </div>
+          \`;
+        }
       }
     </script>
   ` : ''}
@@ -464,15 +523,19 @@ export class ContentRenderer {
 </html>`;
   }
 
-  private escapeCodeForScript(code: string): string {
-    // Use JSON.stringify to safely escape the code for JavaScript injection
-    return JSON.stringify(code);
-  }
-
   private escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (typeof document !== 'undefined') {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    // Fallback for server-side
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private getTailwindCSS(): string {

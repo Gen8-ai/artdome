@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { aiService } from '@/services/ai/aiService';
 
@@ -76,7 +75,7 @@ Please respond with JSON in this format:
 
     try {
       // First analyze the code to understand issues
-      const analysis = await this.analyzeCode(code);
+      const analysis = await this.analyzeCode(code, language);
       
       // Create comprehensive fix prompt
       const fixPrompt = this.buildFixPrompt(code, language, analysis, errorMessage);

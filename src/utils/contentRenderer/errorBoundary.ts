@@ -38,16 +38,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) {
         const FallbackComponent = this.props.fallback;
-        return <FallbackComponent error={this.state.error} retry={this.handleRetry} />;
+        return React.createElement(FallbackComponent, { 
+          error: this.state.error, 
+          retry: this.handleRetry 
+        });
       }
 
-      return (
-        <div className="error-boundary-fallback">
-          <h3>Something went wrong</h3>
-          <p>{this.state.error.message}</p>
-          <button onClick={this.handleRetry}>Try again</button>
-        </div>
-      );
+      return React.createElement('div', { className: 'error-boundary-fallback' }, [
+        React.createElement('h3', { key: 'title' }, 'Something went wrong'),
+        React.createElement('p', { key: 'message' }, this.state.error.message),
+        React.createElement('button', { 
+          key: 'retry', 
+          onClick: this.handleRetry 
+        }, 'Try again')
+      ]);
     }
 
     return this.props.children;
@@ -78,7 +82,7 @@ export class ErrorBoundaryManager {
       // Convert error to string for reporting
       const errorMessage = typeof event.reason === 'string' 
         ? event.reason 
-        : (event.reason?.message || String(event.reason));
+        : (event.reason instanceof Error ? event.reason.message : String(event.reason));
       
       this.reportError(errorMessage);
       event.preventDefault();
@@ -156,9 +160,8 @@ export class ErrorBoundaryManager {
   }
 
   createErrorBoundary(fallbackComponent?: React.ComponentType<{ error: Error; retry: () => void }>): typeof ErrorBoundary {
-    const BoundaryWithFallback = (props: ErrorBoundaryProps) => (
-      <ErrorBoundary {...props} fallback={fallbackComponent} />
-    );
+    const BoundaryWithFallback = (props: ErrorBoundaryProps) => 
+      React.createElement(ErrorBoundary, { ...props, fallback: fallbackComponent });
     return BoundaryWithFallback as unknown as typeof ErrorBoundary;
   }
 

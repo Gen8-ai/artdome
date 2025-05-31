@@ -7,20 +7,14 @@ export const useTheme = () => {
   const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
     const root = window.document.documentElement;
     
+    // Clear any existing theme classes and filters
+    root.classList.remove('light', 'dark');
+    root.style.filter = '';
+    
     if (newTheme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.remove('light', 'dark');
       root.classList.add(systemTheme);
-      
-      // Apply dimmed effect for system theme
-      if (systemTheme === 'dark') {
-        root.style.filter = 'brightness(0.9)';
-      } else {
-        root.style.filter = 'brightness(0.95)';
-      }
     } else {
-      root.style.filter = '';
-      root.classList.remove('light', 'dark');
       root.classList.add(newTheme);
     }
     

@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/integrations/supabase/client';
 import { Settings, Trash2, Bell } from 'lucide-react';
 
@@ -36,10 +37,11 @@ const LANGUAGES = [
 const AppPreferences = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { theme, applyTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [clearingChats, setClearingChats] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>({
-    theme: 'dark',
+    theme: theme,
     language: 'en',
     notifications_enabled: true,
     email_notifications: true,
@@ -72,9 +74,7 @@ const AppPreferences = () => {
           email_notifications: data.email_notifications,
           auto_save: data.auto_save,
         });
-        
-        // Apply theme immediately
-        applyTheme(data.theme);
+        // Don't automatically apply theme here - only when user saves
       }
     } catch (error) {
       console.error('Error fetching preferences:', error);
@@ -83,28 +83,6 @@ const AppPreferences = () => {
         description: 'Failed to load preferences',
         variant: 'destructive',
       });
-    }
-  };
-
-  const applyTheme = (theme: string) => {
-    const root = window.document.documentElement;
-    
-    // Remove any existing theme classes and filters
-    root.classList.remove('light', 'dark');
-    root.style.filter = '';
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
-      
-      // Apply subtle dimmed effect for system theme
-      if (systemTheme === 'dark') {
-        root.style.filter = 'brightness(0.95)';
-      } else {
-        root.style.filter = 'brightness(0.98)';
-      }
-    } else {
-      root.classList.add(theme);
     }
   };
 
@@ -127,7 +105,7 @@ const AppPreferences = () => {
 
       if (error) throw error;
 
-      // Apply theme immediately
+      // Only apply theme when user explicitly saves preferences
       applyTheme(preferences.theme);
 
       // Request notification permission if enabled
@@ -240,7 +218,7 @@ const AppPreferences = () => {
                 <SelectContent>
                   <SelectItem value="light">Light</SelectItem>
                   <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System (Auto-dimmed)</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
                 </SelectContent>
               </Select>
             </div>

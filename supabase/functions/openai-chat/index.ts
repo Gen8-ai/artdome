@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 interface ChatRequest {
-  message: string;
+  message?: string;
+  messages?: Array<{ role: string; content: string }>;
   conversationId?: string;
   modelId?: string;
   systemPrompt?: string;
@@ -49,13 +50,22 @@ serve(async (req) => {
       throw new Error('User not authenticated');
     }
 
-    const { message, conversationId, modelId, systemPrompt, parameters }: ChatRequest = await req.json();
+    const requestBody: ChatRequest = await req.json();
+    const { message, messages, conversationId, modelId, systemPrompt, parameters } = requestBody;
     
-    if (!message?.trim()) {
+    // Support both single message and messages array format
+    const userMessage = message || (messages && messages[messages.length - 1]?.content);
+    if (!userMessage?.trim()) {
       throw new Error('Message is required');
     }
 
-    console.log('Chat request:', { message, conversationId, modelId, userId: user.id });
+    console.log('Chat request:', { 
+      userMessage: userMessage.substring(0, 100) + '...', 
+      conversationId, 
+      modelId, 
+      userId: user.id,
+      hasSystemPrompt: !!systemPrompt 
+    });
 
     // Get or create conversation
     let conversation;
@@ -76,7 +86,7 @@ serve(async (req) => {
         .insert({
           user_id: user.id,
           model_id: modelId,
-          title: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+          title: userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
         })
         .select()
         .single();
@@ -94,33 +104,38 @@ serve(async (req) => {
 
     const selectedModel = model?.name || 'gpt-4o-mini';
 
-    // Get conversation history
-    const { data: messages } = await supabaseClient
-      .from('chat_messages')
-      .select('role, content')
-      .eq('conversation_id', conversation.id)
-      .order('created_at', { ascending: true });
-
-    // Prepare messages for OpenAI
-    const openaiMessages = [];
+    // Get conversation history if using messages array, otherwise get from database
+    let openaiMessages = [];
     
     if (systemPrompt) {
       openaiMessages.push({ role: 'system', content: systemPrompt });
     }
 
-    if (messages) {
-      openaiMessages.push(...messages);
+    if (messages && messages.length > 1) {
+      // Use provided messages array (excluding the last user message)
+      openaiMessages.push(...messages.slice(0, -1));
+    } else {
+      // Get conversation history from database
+      const { data: dbMessages } = await supabaseClient
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: true });
+
+      if (dbMessages) {
+        openaiMessages.push(...dbMessages);
+      }
     }
 
-    openaiMessages.push({ role: 'user', content: message });
+    openaiMessages.push({ role: 'user', content: userMessage });
 
-    // Save user message
+    // Save user message to database
     const { error: userMsgError } = await supabaseClient
       .from('chat_messages')
       .insert({
         conversation_id: conversation.id,
         role: 'user',
-        content: message,
+        content: userMessage,
         model_used: selectedModel,
       });
 
@@ -203,16 +218,19 @@ serve(async (req) => {
     console.log('Chat completed successfully:', { 
       conversationId: conversation.id, 
       tokensUsed, 
-      cost: totalCost 
+      cost: totalCost,
+      systemPromptUsed: !!systemPrompt
     });
 
     return new Response(JSON.stringify({
       success: true,
       conversationId: conversation.id,
       message: assistantMessage,
+      choices: [{ message: { content: assistantMessage } }],
       usage: {
-        tokens: tokensUsed,
-        cost: totalCost,
+        total_tokens: tokensUsed,
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
       },
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

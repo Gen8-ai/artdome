@@ -9,6 +9,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { useConversation } from '@/contexts/ConversationContext';
 import { useConversations } from '@/hooks/useConversations';
 import ChatMessage from './ChatMessage';
+import PromptSelector from './PromptSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -23,6 +24,7 @@ const ChatInterface = () => {
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPromptSelector, setShowPromptSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,15 +57,19 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [displayMessages]);
 
-  // Filter prompts to show main categories
+  // Group prompts by category for quick access
   const getPromptsByCategory = (category: string) => {
     return prompts?.filter(p => p.category === category && (p.is_public || p.user_id === user?.id)) || [];
   };
 
+  // Get all available categories from prompts
+  const availableCategories = prompts ? 
+    [...new Set(prompts.map(p => p.category).filter(Boolean))] : [];
+
   const handlePromptSelect = (promptId: string) => {
     setSelectedPromptId(promptId);
     
-    // Find the selected prompt and set its content as a starting message
+    // Find the selected prompt and log for debugging
     const selectedPrompt = prompts?.find(p => p.id === promptId);
     if (selectedPrompt) {
       console.log('Selected prompt:', selectedPrompt.name, selectedPrompt.content);
@@ -189,55 +195,55 @@ const ChatInterface = () => {
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm flex-shrink-0">
         <div className="max-w-4xl mx-auto p-4">
           <div className="space-y-3">
-            {/* Dynamic Prompt Buttons from Supabase */}
-            <div className="flex flex-wrap gap-1 overflow-x-auto">
-              {!promptsLoading && prompts && (
-                <>
-                  {/* Show prompts from different categories */}
-                  {getPromptsByCategory('interact').slice(0, 2).map((prompt) => (
-                    <Button
-                      key={prompt.id}
-                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
-                      onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs flex-shrink-0"
-                    >
-                      {prompt.name}
-                    </Button>
-                  ))}
-                  {getPromptsByCategory('story').slice(0, 2).map((prompt) => (
-                    <Button
-                      key={prompt.id}
-                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
-                      onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs flex-shrink-0"
-                    >
-                      {prompt.name}
-                    </Button>
-                  ))}
-                  {getPromptsByCategory('search').slice(0, 2).map((prompt) => (
-                    <Button
-                      key={prompt.id}
-                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
-                      onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs flex-shrink-0"
-                    >
-                      {prompt.name}
-                    </Button>
-                  ))}
-                  {/* General/No prompt button */}
-                  <Button
-                    variant={!selectedPromptId ? "default" : "outline"}
-                    onClick={() => setSelectedPromptId('')}
-                    className="h-6 px-2 text-xs flex-shrink-0"
-                  >
-                    General
-                  </Button>
-                </>
-              )}
-              {promptsLoading && (
-                <div className="text-xs text-muted-foreground">Loading prompts...</div>
-              )}
+            {/* Prompt Selector */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <PromptSelector
+                  prompts={prompts || []}
+                  selectedPromptId={selectedPromptId}
+                  onPromptChange={handlePromptSelect}
+                  disabled={promptsLoading || isLoading}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPromptSelector(!showPromptSelector)}
+                className="ml-2"
+              >
+                {showPromptSelector ? 'Hide' : 'Show'} All Prompts
+              </Button>
             </div>
+
+            {/* Quick Prompt Buttons - Show prompts from available categories */}
+            {!promptsLoading && prompts && availableCategories.length > 0 && (
+              <div className="flex flex-wrap gap-1 overflow-x-auto">
+                {availableCategories.slice(0, 4).map((category) => (
+                  getPromptsByCategory(category).slice(0, 1).map((prompt) => (
+                    <Button
+                      key={prompt.id}
+                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
+                      onClick={() => handlePromptSelect(prompt.id)}
+                      className="h-6 px-2 text-xs flex-shrink-0"
+                    >
+                      {prompt.name}
+                    </Button>
+                  ))
+                ))}
+                {/* General/No prompt button */}
+                <Button
+                  variant={!selectedPromptId ? "default" : "outline"}
+                  onClick={() => setSelectedPromptId('')}
+                  className="h-6 px-2 text-xs flex-shrink-0"
+                >
+                  General
+                </Button>
+              </div>
+            )}
+
+            {promptsLoading && (
+              <div className="text-xs text-muted-foreground">Loading prompts...</div>
+            )}
             
             {/* Input Container */}
             <div className="relative">

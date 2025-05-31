@@ -17,7 +17,7 @@ const ConversationList = () => {
   const { conversations, isLoading, createConversation, deleteConversation } = useConversations();
 
   const handleCreateConversation = () => {
-    createConversation.mutate();
+    createConversation.mutate('New Chat');
   };
 
   const handleDeleteConversation = (conversationId: string, e: React.MouseEvent) => {

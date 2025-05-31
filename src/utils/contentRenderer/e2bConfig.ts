@@ -9,7 +9,7 @@ export interface E2BConfig {
 }
 
 export const defaultE2BConfig: E2BConfig = {
-  apiKey: process.env.VITE_E2B_API_KEY || '',
+  apiKey: import.meta.env.VITE_E2B_API_KEY || '',
   defaultLanguage: 'javascript',
   timeout: 30000, // 30 seconds
   enableFileSystem: true,

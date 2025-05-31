@@ -10,6 +10,7 @@ import { useConversation } from '@/contexts/ConversationContext';
 import { useConversations } from '@/hooks/useConversations';
 import ChatMessage from './ChatMessage';
 import { supabase } from '@/integrations/supabase/client';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Message {
   id: string;
@@ -149,45 +150,47 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          {displayMessages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-semibold mb-2">Welcome to AI Assistant</h2>
-              <p className="text-muted-foreground max-w-md">
-                Start a conversation by typing a message below. I'm here to help with any questions or tasks you might have.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {displayMessages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
-              ))}
-              {isLoading && (
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                  <span className="text-sm">AI is thinking...</span>
+    <div className="flex flex-col h-full bg-background overflow-hidden">
+      {/* Messages Container with ScrollArea */}
+      <div className="flex-1 min-h-0">
+        <ScrollArea className="h-full">
+          <div className="max-w-4xl mx-auto px-4 py-6">
+            {displayMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <Sparkles className="w-8 h-8 text-primary" />
                 </div>
-              )}
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+                <h2 className="text-2xl font-semibold mb-2">Welcome to AI Assistant</h2>
+                <p className="text-muted-foreground max-w-md">
+                  Start a conversation by typing a message below. I'm here to help with any questions or tasks you might have.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {displayMessages.map((message) => (
+                  <ChatMessage key={message.id} message={message} />
+                ))}
+                {isLoading && (
+                  <div className="flex items-center space-x-2 text-muted-foreground px-4">
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                    <span className="text-sm">AI is thinking...</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm">
+      <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm flex-shrink-0">
         <div className="max-w-4xl mx-auto p-4">
           <div className="space-y-3">
             {/* Dynamic Prompt Buttons from Supabase */}
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 overflow-x-auto">
               {!promptsLoading && prompts && (
                 <>
                   {/* Show prompts from different categories */}
@@ -196,7 +199,7 @@ const ChatInterface = () => {
                       key={prompt.id}
                       variant={selectedPromptId === prompt.id ? "default" : "outline"}
                       onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs"
+                      className="h-6 px-2 text-xs flex-shrink-0"
                     >
                       {prompt.name}
                     </Button>
@@ -206,7 +209,7 @@ const ChatInterface = () => {
                       key={prompt.id}
                       variant={selectedPromptId === prompt.id ? "default" : "outline"}
                       onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs"
+                      className="h-6 px-2 text-xs flex-shrink-0"
                     >
                       {prompt.name}
                     </Button>
@@ -216,7 +219,7 @@ const ChatInterface = () => {
                       key={prompt.id}
                       variant={selectedPromptId === prompt.id ? "default" : "outline"}
                       onClick={() => handlePromptSelect(prompt.id)}
-                      className="h-6 px-2 text-xs"
+                      className="h-6 px-2 text-xs flex-shrink-0"
                     >
                       {prompt.name}
                     </Button>
@@ -225,7 +228,7 @@ const ChatInterface = () => {
                   <Button
                     variant={!selectedPromptId ? "default" : "outline"}
                     onClick={() => setSelectedPromptId('')}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-xs flex-shrink-0"
                   >
                     General
                   </Button>

@@ -21,10 +21,10 @@ interface Message {
 interface ChatMessageProps {
   message: Message;
   onArtifactClick?: () => void;
-  onHtmlRender?: (content: string) => void;
+  onContentRender?: (content: string) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onHtmlRender }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onContentRender }) => {
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -32,15 +32,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onH
   const isDarkMode = document.documentElement.classList.contains('dark');
   const isUser = message.role === 'user';
 
-  // Check if message contains code blocks that could be rendered
+  // Enhanced detection for renderable content
   const hasRenderableCode = message.content.includes('```html') || 
                            message.content.includes('```jsx') || 
+                           message.content.includes('```react') ||
                            message.content.includes('```css') ||
-                           message.content.includes('```javascript');
+                           message.content.includes('```javascript') ||
+                           message.content.includes('```canvas') ||
+                           message.content.includes('<artifact') ||
+                           message.content.includes('Canvas]');
 
-  const handleHtmlRender = () => {
-    if (onHtmlRender) {
-      onHtmlRender(message.content);
+  const handleContentRender = () => {
+    if (onContentRender) {
+      onContentRender(message.content);
     }
   };
 
@@ -178,13 +182,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onH
                 )}
                 {hasRenderableCode && !isUser && (
                   <Button
-                    onClick={handleHtmlRender}
+                    onClick={handleContentRender}
                     variant="outline"
                     size="sm"
                     className="flex items-center space-x-2"
                   >
                     <Globe className="w-4 h-4" />
-                    <span>Render HTML</span>
+                    <span>Render Content</span>
                   </Button>
                 )}
               </div>

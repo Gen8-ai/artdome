@@ -9,7 +9,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { useConversation } from '@/contexts/ConversationContext';
 import { useConversations } from '@/hooks/useConversations';
 import ChatMessage from './ChatMessage';
-import HtmlRenderer from './HtmlRenderer';
+import ContentRenderer from './ContentRenderer';
 import PromptSelector from './PromptSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,8 +26,8 @@ const ChatInterface = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPromptSelector, setShowPromptSelector] = useState(false);
-  const [showHtmlRenderer, setShowHtmlRenderer] = useState(false);
-  const [htmlContent, setHtmlContent] = useState('');
+  const [showContentRenderer, setShowContentRenderer] = useState(false);
+  const [rendererContent, setRendererContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -75,14 +75,14 @@ const ChatInterface = () => {
     }
   };
 
-  const handleHtmlRender = (content: string) => {
-    setHtmlContent(content);
-    setShowHtmlRenderer(true);
+  const handleContentRender = (content: string) => {
+    setRendererContent(content);
+    setShowContentRenderer(true);
   };
 
-  const handleCloseHtmlRenderer = () => {
-    setShowHtmlRenderer(false);
-    setHtmlContent('');
+  const handleCloseContentRenderer = () => {
+    setShowContentRenderer(false);
+    setRendererContent('');
   };
 
   const sendMessage = async () => {
@@ -169,9 +169,9 @@ const ChatInterface = () => {
     }
   };
 
-  // Show HTML renderer if active
-  if (showHtmlRenderer) {
-    return <HtmlRenderer content={htmlContent} onClose={handleCloseHtmlRenderer} />;
+  // Show content renderer if active
+  if (showContentRenderer) {
+    return <ContentRenderer content={rendererContent} onClose={handleCloseContentRenderer} />;
   }
 
   return (
@@ -196,7 +196,7 @@ const ChatInterface = () => {
                   <ChatMessage 
                     key={message.id} 
                     message={message} 
-                    onHtmlRender={handleHtmlRender}
+                    onContentRender={handleContentRender}
                   />
                 ))}
                 {isLoading && (

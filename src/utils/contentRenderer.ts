@@ -198,7 +198,23 @@ export class ContentRenderer {
         return ErrorTemplates.createErrorTemplate(`Security validation failed: ${validation.errors.join(', ')}`);
       }
 
-      let processedCode = SecureInjection.sanitizeCode(block.code);
+      // Import the module validator
+      const { moduleImportValidator } = await import('./contentRenderer/moduleImportValidator');
+      
+      // Validate module imports
+      const moduleValidation = moduleImportValidator.validateCode(block.code);
+      if (!moduleValidation.isValid) {
+        console.warn('Module validation failed:', moduleValidation.errors);
+        
+        // If it has module imports but validation failed, wrap in module context
+        if (moduleValidation.hasModuleImports) {
+          return moduleImportValidator.wrapInModuleContext(block.code, block.title);
+        } else {
+          return ErrorTemplates.createErrorTemplate(`Module validation failed: ${moduleValidation.errors.join(', ')}`);
+        }
+      }
+
+      let processedCode = SecureInjection.sanitizeCode(moduleValidation.sanitizedCode);
       let additionalCSS = '';
 
       // Load required modules

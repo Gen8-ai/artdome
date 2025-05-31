@@ -1,5 +1,5 @@
 
-import CodeInterpreter from '@e2b/code-interpreter';
+import { Sandbox } from '@e2b/code-interpreter';
 import { E2BConfig, SupportedLanguage, detectLanguage, defaultE2BConfig } from './e2bConfig';
 
 export interface ExecutionResult {
@@ -28,7 +28,7 @@ export interface ExecutionOptions {
 export class E2BExecutor {
   private static instance: E2BExecutor;
   private config: E2BConfig;
-  private activeInterpreters = new Map<string, CodeInterpreter>();
+  private activeSandboxes = new Map<string, Sandbox>();
 
   static getInstance(): E2BExecutor {
     if (!E2BExecutor.instance) {
@@ -51,22 +51,22 @@ export class E2BExecutor {
 
     try {
       logs.push(`Detected language: ${language}`);
-      logs.push('Starting E2B code interpreter...');
+      logs.push('Starting E2B sandbox...');
 
-      // Create or get existing interpreter
-      const interpreter = await this.getOrCreateInterpreter();
+      // Create or get existing sandbox
+      const sandbox = await this.getOrCreateSandbox();
       
       // Install packages if specified
       if (options.packages && options.packages.length > 0) {
         logs.push(`Installing packages: ${options.packages.join(', ')}`);
-        await this.installPackages(interpreter, options.packages, language);
+        await this.installPackages(sandbox, options.packages, language);
       }
 
       // Execute the code
       logs.push('Executing code...');
-      const execution = await interpreter.notebook.execCell(code, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
+      const execution = await sandbox.runCode(language, code, {
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -75,8 +75,8 @@ export class E2BExecutor {
       if (execution.error) {
         return {
           success: false,
-          output: execution.text || '',
-          error: execution.error.name + ': ' + execution.error.value,
+          output: execution.stdout || '',
+          error: execution.stderr || execution.error,
           executionTime,
           logs
         };
@@ -85,12 +85,12 @@ export class E2BExecutor {
       // Get file system contents if enabled
       let files: FileInfo[] = [];
       if (options.enableFileSystem) {
-        files = await this.getFileSystemContents(interpreter);
+        files = await this.getFileSystemContents(sandbox);
       }
 
       return {
         success: true,
-        output: execution.text || 'Code executed successfully',
+        output: execution.stdout || 'Code executed successfully',
         executionTime,
         files,
         logs
@@ -120,19 +120,20 @@ export class E2BExecutor {
 
     try {
       logs.push('Creating multi-file project in E2B...');
-      const interpreter = await this.getOrCreateInterpreter();
+      const sandbox = await this.getOrCreateSandbox();
 
-      // Write all files to the interpreter
+      // Write all files to the sandbox
       for (const [filename, content] of Object.entries(files)) {
         logs.push(`Writing file: ${filename}`);
-        await interpreter.filesystem.write(filename, content);
+        await sandbox.writeFile(filename, content);
       }
 
       // Execute the entry point
       logs.push(`Executing entry point: ${entryPoint}`);
-      const execution = await interpreter.notebook.execCell(`exec(open('${entryPoint}').read())`, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
+      const language = detectLanguage(files[entryPoint] || '');
+      const execution = await sandbox.runCode(language, `exec(open('${entryPoint}').read())`, {
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -140,18 +141,18 @@ export class E2BExecutor {
       if (execution.error) {
         return {
           success: false,
-          output: execution.text || '',
-          error: execution.error.name + ': ' + execution.error.value,
+          output: execution.stdout || '',
+          error: execution.stderr || execution.error,
           executionTime,
           logs
         };
       }
 
-      const fileContents = await this.getFileSystemContents(interpreter);
+      const fileContents = await this.getFileSystemContents(sandbox);
 
       return {
         success: true,
-        output: execution.text || 'Project executed successfully',
+        output: execution.stdout || 'Project executed successfully',
         executionTime,
         files: fileContents,
         logs
@@ -171,41 +172,41 @@ export class E2BExecutor {
     }
   }
 
-  private async getOrCreateInterpreter(): Promise<CodeInterpreter> {
+  private async getOrCreateSandbox(): Promise<Sandbox> {
     const sessionId = 'default';
     
-    if (this.activeInterpreters.has(sessionId)) {
-      return this.activeInterpreters.get(sessionId)!;
+    if (this.activeSandboxes.has(sessionId)) {
+      return this.activeSandboxes.get(sessionId)!;
     }
 
     if (!this.config.apiKey) {
       throw new Error('E2B API key is required. Please set VITE_E2B_API_KEY environment variable.');
     }
 
-    const interpreter = await CodeInterpreter.create({
+    const sandbox = await Sandbox.create({
       apiKey: this.config.apiKey,
       timeoutMs: this.config.timeout
     });
 
-    this.activeInterpreters.set(sessionId, interpreter);
-    return interpreter;
+    this.activeSandboxes.set(sessionId, sandbox);
+    return sandbox;
   }
 
   private async installPackages(
-    interpreter: CodeInterpreter, 
+    sandbox: Sandbox, 
     packages: string[], 
     language: SupportedLanguage
   ): Promise<void> {
     switch (language) {
       case 'python':
         for (const pkg of packages) {
-          await interpreter.notebook.execCell(`!pip install ${pkg}`);
+          await sandbox.runCode('bash', `pip install ${pkg}`);
         }
         break;
       case 'javascript':
       case 'typescript':
         for (const pkg of packages) {
-          await interpreter.notebook.execCell(`!npm install ${pkg}`);
+          await sandbox.runCode('bash', `npm install ${pkg}`);
         }
         break;
       default:
@@ -213,20 +214,26 @@ export class E2BExecutor {
     }
   }
 
-  private async getFileSystemContents(interpreter: CodeInterpreter): Promise<FileInfo[]> {
+  private async getFileSystemContents(sandbox: Sandbox): Promise<FileInfo[]> {
     try {
       const files: FileInfo[] = [];
-      const fileList = await interpreter.filesystem.list('/');
+      const execution = await sandbox.runCode('bash', 'find . -type f -name "*" | head -20');
       
-      for (const file of fileList) {
-        if (file.type === 'file') {
-          const content = await interpreter.filesystem.read(file.path);
-          files.push({
-            name: file.name,
-            content,
-            path: file.path,
-            size: content.length
-          });
+      if (execution.stdout) {
+        const filePaths = execution.stdout.split('\n').filter(path => path.trim());
+        
+        for (const filePath of filePaths) {
+          try {
+            const content = await sandbox.readFile(filePath);
+            files.push({
+              name: filePath.split('/').pop() || filePath,
+              content,
+              path: filePath,
+              size: content.length
+            });
+          } catch (error) {
+            console.warn(`Failed to read file ${filePath}:`, error);
+          }
         }
       }
       
@@ -238,19 +245,19 @@ export class E2BExecutor {
   }
 
   async closeSession(sessionId: string = 'default'): Promise<void> {
-    const interpreter = this.activeInterpreters.get(sessionId);
-    if (interpreter) {
-      await interpreter.kill();
-      this.activeInterpreters.delete(sessionId);
+    const sandbox = this.activeSandboxes.get(sessionId);
+    if (sandbox) {
+      await sandbox.close();
+      this.activeSandboxes.delete(sessionId);
     }
   }
 
   async closeAllSessions(): Promise<void> {
-    const closePromises = Array.from(this.activeInterpreters.values()).map(
-      interpreter => interpreter.kill()
+    const closePromises = Array.from(this.activeSandboxes.values()).map(
+      sandbox => sandbox.close()
     );
     await Promise.all(closePromises);
-    this.activeInterpreters.clear();
+    this.activeSandboxes.clear();
   }
 
   updateConfig(newConfig: Partial<E2BConfig>): void {

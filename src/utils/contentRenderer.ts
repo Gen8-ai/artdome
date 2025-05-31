@@ -1,4 +1,3 @@
-
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -7,7 +6,7 @@ import { ContentTypeDetector } from './contentRenderer/contentTypeDetector';
 import { HTMLTemplateGenerator } from './contentRenderer/htmlTemplateGenerator';
 import { ErrorTemplates } from './contentRenderer/errorTemplates';
 
-export { ContentBlock, RenderingOptions } from './contentRenderer/types';
+export type { ContentBlock, RenderingOptions } from './contentRenderer/types';
 
 export class ContentRenderer {
   private static instance: ContentRenderer;

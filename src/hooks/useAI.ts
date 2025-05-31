@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,8 +19,8 @@ export const useAI = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  // State management for AI settings
-  const [selectedModelId, setSelectedModelId] = useState<string>('gpt-4o');
+  // State management for AI settings - initialize selectedModelId as empty
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
   const [parameters, setParameters] = useState<AIParameters>({
     temperature: 0.7,
@@ -39,6 +40,16 @@ export const useAI = () => {
     },
   });
 
+  // Set default model when models are loaded
+  useEffect(() => {
+    if (models && models.length > 0 && !selectedModelId) {
+      // Try to find gpt-4o first, fallback to first model
+      const defaultModel = models.find(m => m.name === 'gpt-4o') || models[0];
+      console.log('Setting default model:', defaultModel.name, 'with ID:', defaultModel.id);
+      setSelectedModelId(defaultModel.id);
+    }
+  }, [models, selectedModelId]);
+
   // Fetch available prompts with proper authentication
   const { data: prompts, isLoading: promptsLoading } = useQuery({
     queryKey: ['ai-prompts', user?.id],
@@ -50,21 +61,29 @@ export const useAI = () => {
     enabled: !!user,
   });
 
-  // Load user preferences when component mounts
+  // Load user preferences when component mounts and when selectedModelId changes
   useEffect(() => {
     const loadUserPreferences = async () => {
-      if (!user) return;
+      if (!user || !selectedModelId) return;
 
       try {
+        console.log('Loading parameters for user:', user.id, 'model:', selectedModelId);
+        
         // Load saved AI parameters
-        const { data: userParams } = await supabase
+        const { data: userParams, error } = await supabase
           .from('ai_parameters')
           .select('*')
           .eq('user_id', user.id)
           .eq('model_id', selectedModelId)
           .single();
 
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error loading user parameters:', error);
+          return;
+        }
+
         if (userParams) {
+          console.log('Loaded user parameters:', userParams);
           setParameters({
             temperature: userParams.temperature ?? 0.7,
             max_tokens: userParams.max_tokens ?? 1000,
@@ -72,6 +91,8 @@ export const useAI = () => {
             frequency_penalty: userParams.frequency_penalty ?? 0,
             presence_penalty: userParams.presence_penalty ?? 0,
           });
+        } else {
+          console.log('No saved parameters found, using defaults');
         }
 
         // Load last used prompt from user preferences
@@ -93,9 +114,10 @@ export const useAI = () => {
 
   // Save parameters when they change
   const saveParameters = async (newParams: AIParameters) => {
-    if (!user) return;
+    if (!user || !selectedModelId) return;
 
     try {
+      console.log('Saving parameters for model:', selectedModelId);
       await supabase
         .from('ai_parameters')
         .upsert({
@@ -113,6 +135,12 @@ export const useAI = () => {
   const updateParameters = (newParams: AIParameters) => {
     setParameters(newParams);
     saveParameters(newParams);
+  };
+
+  // Update model selection handler to ensure we're using UUIDs
+  const handleModelChange = (modelId: string) => {
+    console.log('Changing model to:', modelId);
+    setSelectedModelId(modelId);
   };
 
   // Send chat message mutation
@@ -134,7 +162,7 @@ export const useAI = () => {
         body: {
           message,
           conversationId,
-          modelId,
+          modelId: modelId || selectedModelId, // Use provided modelId or current selection
           systemPrompt,
           parameters,
         },
@@ -162,7 +190,7 @@ export const useAI = () => {
     selectedModelId,
     selectedPromptId,
     parameters,
-    setSelectedModelId,
+    setSelectedModelId: handleModelChange,
     setSelectedPromptId,
     setParameters: updateParameters,
   };

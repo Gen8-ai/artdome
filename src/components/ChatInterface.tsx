@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, User } from 'lucide-react';
+import { Send, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +9,6 @@ import ArtifactPreview from './ArtifactPreview';
 import AISettings from './AISettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
-import '../styles/safari-enhancements.css';
 
 interface Message {
   id: string;
@@ -20,11 +20,7 @@ interface Message {
   model?: string;
 }
 
-interface ChatInterfaceProps {
-  onShowSettings?: () => void;
-}
-
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
+const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [selectedArtifact, setSelectedArtifact] = useState<any>(null);
@@ -121,7 +117,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Error handling is done in the useAI hook
     }
   };
 
@@ -141,49 +136,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
   };
 
   return (
-    <div className="h-screen flex safari-viewport-fix">
-      <div className={`flex flex-col ${selectedArtifact ? 'lg:w-1/2' : 'w-full'} transition-all duration-300 safari-animate`}>
-        <header className="safari-backdrop border-b border-white/20 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-white safari-text">AI Chat Assistant</h1>
-              <div className="flex items-center space-x-2 text-white/60 text-sm safari-text">
-                <User className="w-4 h-4" />
-                <span>{user?.email}</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <AISettings
-                models={models || []}
-                prompts={prompts || []}
-                selectedModelId={selectedModelId}
-                selectedPromptId={selectedPromptId}
-                parameters={parameters}
-                onModelChange={setSelectedModelId}
-                onPromptChange={setSelectedPromptId}
-                onParametersChange={setParameters}
-                disabled={isLoading || modelsLoading || promptsLoading}
-              />
-              {onShowSettings && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onShowSettings}
-                  className="text-white hover:bg-white/10 safari-button"
-                >
-                  <User className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+    <div className="h-full flex flex-col lg:flex-row">
+      {/* Main Chat Area */}
+      <div className={`flex flex-col ${selectedArtifact ? 'lg:w-1/2' : 'w-full'} transition-all duration-300`}>
+        {/* Chat Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/80 backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <h1 className="text-lg lg:text-xl font-semibold text-foreground">AI Assistant</h1>
           </div>
-        </header>
+          <AISettings
+            models={models || []}
+            prompts={prompts || []}
+            selectedModelId={selectedModelId}
+            selectedPromptId={selectedPromptId}
+            parameters={parameters}
+            onModelChange={setSelectedModelId}
+            onPromptChange={setSelectedPromptId}
+            onParametersChange={setParameters}
+            disabled={isLoading || modelsLoading || promptsLoading}
+          />
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 safari-scroll">
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="text-center text-white/60 mt-12 safari-text">
-              <h2 className="text-xl mb-2">Welcome to AI Chat Assistant</h2>
-              <p>Start a conversation with OpenAI by typing a message below.</p>
-              {modelsLoading && <p className="mt-2">Loading AI models...</p>}
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground max-w-md">
+                <h2 className="text-xl lg:text-2xl font-semibold mb-2 text-foreground">
+                  Welcome to AI Assistant
+                </h2>
+                <p className="text-sm lg:text-base">
+                  Start a conversation by typing a message below.
+                </p>
+                {modelsLoading && (
+                  <p className="mt-2 text-sm">Loading AI models...</p>
+                )}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -196,11 +184,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
           )}
           {isLoading && (
             <div className="flex justify-start mb-4">
-              <div className="safari-backdrop border border-white/20 rounded-2xl p-4 max-w-[80%] safari-animate">
+              <div className="bg-muted/50 border border-border rounded-2xl p-4 max-w-[80%]">
                 <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full safari-pulse"></div>
-                  <div className="w-2 h-2 bg-purple-400 rounded-full safari-pulse" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-purple-400 rounded-full safari-pulse" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
                 </div>
               </div>
             </div>
@@ -208,7 +196,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-6 safari-backdrop-strong border-t border-white/20">
+        {/* Input Area */}
+        <div className="p-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
           <div className="flex items-end space-x-2">
             <div className="flex-1 relative">
               <Textarea
@@ -216,14 +205,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message here..."
-                className="min-h-[60px] max-h-32 resize-none safari-backdrop border-white/20 text-white placeholder:text-white/50 pr-20 safari-input safari-text"
+                className="min-h-[50px] lg:min-h-[60px] max-h-32 resize-none pr-20"
                 disabled={isLoading || modelsLoading || promptsLoading}
               />
               <div className="absolute right-2 bottom-2 flex space-x-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-white/60 hover:text-white hover:bg-white/10 safari-button"
+                  className="h-8 w-8 p-0"
                   disabled={isLoading}
                 >
                   <Paperclip className="w-4 h-4" />
@@ -233,7 +222,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
             <Button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading || modelsLoading || promptsLoading || !selectedModelId}
-              className="safari-gradient-primary hover:opacity-90 text-white h-[60px] px-6 safari-button safari-animate"
+              className="h-[50px] lg:h-[60px] px-4 lg:px-6"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -241,6 +230,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
         </div>
       </div>
 
+      {/* Artifact Preview */}
       {selectedArtifact && (
         <ArtifactPreview
           artifact={selectedArtifact}

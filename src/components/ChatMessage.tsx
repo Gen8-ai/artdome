@@ -1,11 +1,11 @@
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { atomDark, prism } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { User, Bot, Code2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import '../styles/safari-enhancements.css';
 
 interface Message {
   id: string;
@@ -27,33 +27,25 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const getModeColor = (mode?: string) => {
-    switch (mode) {
-      case 'canvas': return 'from-pink-500 to-purple-500';
-      case 'research': return 'from-blue-500 to-cyan-500';
-      case 'web': return 'from-green-500 to-emerald-500';
-      case 'repositories': return 'from-orange-500 to-red-500';
-      default: return 'from-gray-500 to-gray-600';
-    }
-  };
+  const isDarkMode = document.documentElement.classList.contains('dark');
 
   return (
-    <div className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4 safari-animate`}>
-      <div className={`max-w-[80%] ${message.isUser ? 'order-2' : 'order-1'}`}>
+    <div className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div className={`max-w-[85%] lg:max-w-[80%] ${message.isUser ? 'order-2' : 'order-1'}`}>
         {/* Message Header */}
         <div className={`flex items-center space-x-2 mb-2 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
           <div className={`flex items-center space-x-2 ${message.isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center safari-animate ${
+            <div className={`w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center ${
               message.isUser 
-                ? 'safari-gradient-secondary' 
-                : 'safari-gradient-primary'
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted text-muted-foreground'
             }`}>
-              {message.isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
+              {message.isUser ? <User className="w-3 h-3 lg:w-4 lg:h-4" /> : <Bot className="w-3 h-3 lg:w-4 lg:h-4" />}
             </div>
-            <div className="text-white/60 text-sm safari-text">
+            <div className="text-muted-foreground text-xs lg:text-sm">
               {message.isUser ? 'You' : 'AI'} • {formatTime(message.timestamp)}
               {message.mode && !message.isUser && (
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs safari-gradient-primary text-white`}>
+                <span className="ml-2 px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
                   {message.mode}
                 </span>
               )}
@@ -62,12 +54,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
         </div>
 
         {/* Message Content */}
-        <div className={`safari-backdrop border border-white/20 rounded-2xl p-4 safari-message-bubble ${
+        <div className={`bg-card border border-border rounded-2xl p-3 lg:p-4 ${
           message.isUser 
-            ? 'ml-4' 
-            : 'mr-4'
+            ? 'ml-2 lg:ml-4' 
+            : 'mr-2 lg:mr-4'
         }`}>
-          <div className="text-white prose prose-invert max-w-none safari-text">
+          <div className="text-card-foreground prose prose-sm lg:prose-base prose-neutral dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -76,14 +68,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                   const isInline = !match;
                   
                   return !isInline ? (
-                    <div className="safari-code-block">
+                    <div className="overflow-x-auto">
                       <SyntaxHighlighter
-                        style={atomDark}
+                        style={isDarkMode ? atomDark : prism}
                         language={match[1]}
                         PreTag="div"
-                        className="rounded-lg"
+                        className="rounded-lg text-sm"
                         customStyle={{
-                          background: 'rgba(0, 0, 0, 0.5)',
+                          margin: 0,
                           WebkitOverflowScrolling: 'touch'
                         }}
                       >
@@ -91,22 +83,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                       </SyntaxHighlighter>
                     </div>
                   ) : (
-                    <code className="bg-white/20 px-1 py-0.5 rounded text-purple-200 safari-text" {...props}>
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                       {children}
                     </code>
                   );
                 },
-                h1: ({ children }) => <h1 className="text-2xl font-bold text-white mb-4 safari-text">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-xl font-bold text-white mb-3 safari-text">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-lg font-bold text-white mb-2 safari-text">{children}</h3>,
-                p: ({ children }) => <p className="text-white/90 mb-3 leading-relaxed safari-text">{children}</p>,
-                ul: ({ children }) => <ul className="text-white/90 mb-3 space-y-1 safari-text">{children}</ul>,
-                ol: ({ children }) => <ol className="text-white/90 mb-3 space-y-1 safari-text">{children}</ol>,
-                li: ({ children }) => <li className="text-white/90 safari-text">{children}</li>,
-                strong: ({ children }) => <strong className="text-white font-semibold safari-text">{children}</strong>,
-                em: ({ children }) => <em className="text-purple-200 safari-text">{children}</em>,
+                h1: ({ children }) => <h1 className="text-xl lg:text-2xl font-bold mb-4">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg lg:text-xl font-bold mb-3">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base lg:text-lg font-bold mb-2">{children}</h3>,
+                p: ({ children }) => <p className="mb-3 leading-relaxed text-sm lg:text-base">{children}</p>,
+                ul: ({ children }) => <ul className="mb-3 space-y-1 text-sm lg:text-base">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-3 space-y-1 text-sm lg:text-base">{children}</ol>,
+                li: ({ children }) => <li className="text-sm lg:text-base">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-purple-400 pl-4 italic text-white/80 bg-white/5 rounded-r-lg py-2 safari-text">
+                  <blockquote className="border-l-4 border-primary pl-4 italic bg-muted/50 rounded-r-lg py-2 text-sm lg:text-base">
                     {children}
                   </blockquote>
                 ),
@@ -118,10 +109,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
 
           {/* Artifact Button */}
           {message.artifact && (
-            <div className="mt-4 pt-4 border-t border-white/20">
+            <div className="mt-4 pt-4 border-t border-border">
               <Button
                 onClick={onArtifactClick}
-                className="flex items-center space-x-2 safari-gradient-primary hover:opacity-90 text-white safari-button safari-animate"
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-2"
               >
                 <Eye className="w-4 h-4" />
                 <span>View Artifact</span>

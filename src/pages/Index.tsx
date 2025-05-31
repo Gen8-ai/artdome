@@ -4,6 +4,7 @@ import ChatInterface from '../components/ChatInterface';
 import OnboardingModal from '../components/OnboardingModal';
 import AuthGuard from '../components/auth/AuthGuard';
 import SettingsPage from '../components/auth/SettingsPage';
+import ResponsiveLayout from '../components/ResponsiveLayout';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -38,11 +39,13 @@ const Index = () => {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="min-h-screen bg-background text-foreground">
         {showSettings ? (
           <SettingsPage onBack={handleBackFromSettings} />
         ) : (
-          <ChatInterface onShowSettings={handleShowSettings} />
+          <ResponsiveLayout>
+            <ChatInterface />
+          </ResponsiveLayout>
         )}
         <OnboardingModal 
           isOpen={showOnboarding} 

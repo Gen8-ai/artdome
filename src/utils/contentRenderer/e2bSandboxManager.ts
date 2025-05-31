@@ -1,10 +1,10 @@
 
 import { e2bExecutor } from './e2bExecutor';
-import { E2BConfig } from './e2bConfig';
+import { E2BConfig, SupportedLanguage } from './e2bConfig';
 
 export interface SandboxEnvironment {
   id: string;
-  language: 'python' | 'javascript' | 'typescript' | 'node' | 'react';
+  language: SupportedLanguage;
   tools: string[];
   dependencies: string[];
   isReady: boolean;
@@ -32,7 +32,7 @@ export class E2BSandboxManager {
   }
 
   async createDevelopmentSandbox(
-    language: SandboxEnvironment['language'],
+    language: SupportedLanguage,
     projectId?: string
   ): Promise<string> {
     const sandboxId = projectId || `dev-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -48,7 +48,7 @@ export class E2BSandboxManager {
       const result = await e2bExecutor.executeCode(
         this.getSetupScript(language, [...devPackages, ...runtimePackages]),
         {
-          language: language === 'react' ? 'javascript' : language,
+          language: language === 'javascript' ? 'javascript' : language,
           timeout: 120000, // 2 minutes for setup
           enableFileSystem: true,
           packages: [...devPackages, ...runtimePackages]
@@ -76,7 +76,7 @@ export class E2BSandboxManager {
         enableDebugger: true,
         enableLinting: true,
         enableFormatting: true,
-        enableTypeChecking: language === 'typescript' || language === 'react',
+        enableTypeChecking: language === 'typescript',
         enableHotReload: true
       });
 
@@ -89,7 +89,7 @@ export class E2BSandboxManager {
     }
   }
 
-  private getDevPackages(language: SandboxEnvironment['language']): string[] {
+  private getDevPackages(language: SupportedLanguage): string[] {
     const common = ['git', 'curl', 'wget', 'vim', 'nano'];
     
     switch (language) {
@@ -97,32 +97,58 @@ export class E2BSandboxManager {
         return [...common, 'pip', 'black', 'flake8', 'pytest', 'ipython', 'jupyter'];
       case 'javascript':
       case 'typescript':
-      case 'node':
         return [...common, 'npm', 'yarn', 'eslint', 'prettier', 'jest', 'nodemon'];
-      case 'react':
-        return [...common, 'npm', 'yarn', 'eslint', 'prettier', 'jest', '@types/react', '@types/react-dom'];
+      case 'java':
+        return [...common, 'maven', 'gradle', 'junit'];
+      case 'cpp':
+        return [...common, 'gcc', 'g++', 'cmake', 'make'];
+      case 'csharp':
+        return [...common, 'dotnet'];
+      case 'go':
+        return [...common, 'go'];
+      case 'rust':
+        return [...common, 'cargo'];
+      case 'php':
+        return [...common, 'composer', 'phpunit'];
+      case 'ruby':
+        return [...common, 'bundler', 'rspec'];
+      case 'bash':
+        return [...common, 'shellcheck'];
       default:
         return common;
     }
   }
 
-  private getRuntimePackages(language: SandboxEnvironment['language']): string[] {
+  private getRuntimePackages(language: SupportedLanguage): string[] {
     switch (language) {
       case 'python':
         return ['requests', 'numpy', 'pandas', 'matplotlib', 'seaborn', 'scikit-learn'];
       case 'javascript':
-      case 'node':
         return ['lodash', 'axios', 'express', 'cors'];
       case 'typescript':
         return ['lodash', 'axios', 'express', 'cors', '@types/node', '@types/lodash'];
-      case 'react':
-        return ['react', 'react-dom', 'styled-components', 'axios', 'react-router-dom'];
+      case 'java':
+        return ['jackson-core', 'slf4j-api'];
+      case 'cpp':
+        return ['boost', 'eigen'];
+      case 'csharp':
+        return ['Newtonsoft.Json'];
+      case 'go':
+        return ['gin-gonic/gin', 'gorilla/mux'];
+      case 'rust':
+        return ['serde', 'tokio'];
+      case 'php':
+        return ['guzzlehttp/guzzle', 'monolog/monolog'];
+      case 'ruby':
+        return ['rails', 'rspec'];
+      case 'bash':
+        return [];
       default:
         return [];
     }
   }
 
-  private getSetupScript(language: SandboxEnvironment['language'], packages: string[]): string {
+  private getSetupScript(language: SupportedLanguage, packages: string[]): string {
     switch (language) {
       case 'python':
         return `
@@ -148,8 +174,6 @@ print("Python development environment ready!")
 
       case 'javascript':
       case 'typescript':
-      case 'node':
-      case 'react':
         return `
 console.log("Setting up Node.js development environment...");
 
@@ -223,7 +247,7 @@ console.log("Node.js development environment ready!");
 
       // Execute code with enhanced error handling
       const result = await e2bExecutor.executeCode(processedCode, {
-        language: sandbox.language === 'react' ? 'javascript' : sandbox.language,
+        language: sandbox.language,
         timeout: 60000,
         enableFileSystem: true
       });
@@ -241,12 +265,11 @@ console.log("Node.js development environment ready!");
     }
   }
 
-  private async applyLinting(code: string, language: SandboxEnvironment['language']): Promise<string> {
+  private async applyLinting(code: string, language: SupportedLanguage): Promise<string> {
     // Simplified linting - in a real implementation, this would use actual linters
     switch (language) {
       case 'javascript':
       case 'typescript':
-      case 'react':
         // Basic JavaScript/TypeScript linting rules
         return code
           .replace(/;+/g, ';') // Remove duplicate semicolons
@@ -262,12 +285,11 @@ console.log("Node.js development environment ready!");
     }
   }
 
-  private async applyFormatting(code: string, language: SandboxEnvironment['language']): Promise<string> {
+  private async applyFormatting(code: string, language: SupportedLanguage): Promise<string> {
     // Simplified formatting - in a real implementation, this would use prettier/black
     switch (language) {
       case 'javascript':
       case 'typescript':
-      case 'react':
         // Basic formatting
         return code
           .replace(/\{/g, ' {\n')

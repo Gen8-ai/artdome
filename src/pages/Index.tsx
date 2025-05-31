@@ -2,14 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import ChatInterface from '../components/ChatInterface';
 import OnboardingModal from '../components/OnboardingModal';
+import AuthGuard from '../components/auth/AuthGuard';
+import SettingsPage from '../components/auth/SettingsPage';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user has completed onboarding
     const hasCompletedOnboarding = localStorage.getItem('ai_chat_onboarding_completed');
     if (!hasCompletedOnboarding) {
       setShowOnboarding(true);
@@ -26,14 +28,28 @@ const Index = () => {
     });
   };
 
+  const handleShowSettings = () => {
+    setShowSettings(true);
+  };
+
+  const handleBackFromSettings = () => {
+    setShowSettings(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <ChatInterface />
-      <OnboardingModal 
-        isOpen={showOnboarding} 
-        onComplete={handleOnboardingComplete}
-      />
-    </div>
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        {showSettings ? (
+          <SettingsPage onBack={handleBackFromSettings} />
+        ) : (
+          <ChatInterface onShowSettings={handleShowSettings} />
+        )}
+        <OnboardingModal 
+          isOpen={showOnboarding} 
+          onComplete={handleOnboardingComplete}
+        />
+      </div>
+    </AuthGuard>
   );
 };
 

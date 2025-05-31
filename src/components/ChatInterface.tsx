@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, Search, Globe, GitBranch, Palette, Settings } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Paperclip, Settings, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import ChatMessage from './ChatMessage';
 import ArtifactPreview from './ArtifactPreview';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Message {
   id: string;
@@ -17,89 +18,35 @@ interface Message {
   model?: string;
 }
 
-interface AIMode {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  description: string;
-  color: string;
+interface ChatInterfaceProps {
+  onShowSettings?: () => void;
 }
 
-const aiModes: AIMode[] = [
-  {
-    id: 'canvas',
-    name: 'Canvas',
-    icon: <Palette className="w-4 h-4" />,
-    description: 'Create visual content and artifacts',
-    color: 'from-pink-500 to-purple-500'
-  },
-  {
-    id: 'research',
-    name: 'Research',
-    icon: <Search className="w-4 h-4" />,
-    description: 'Deep research and analysis',
-    color: 'from-blue-500 to-cyan-500'
-  },
-  {
-    id: 'web',
-    name: 'Web',
-    icon: <Globe className="w-4 h-4" />,
-    description: 'Web search and browsing',
-    color: 'from-green-500 to-emerald-500'
-  },
-  {
-    id: 'repositories',
-    name: 'Repos',
-    icon: <GitBranch className="w-4 h-4" />,
-    description: 'Code repositories search',
-    color: 'from-orange-500 to-red-500'
-  }
-];
-
-const ChatInterface = () => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedMode, setSelectedMode] = useState('canvas');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [isLoading, setIsLoading] = useState(false);
-  const [showArtifact, setShowArtifact] = useState(false);
-  const [currentArtifact, setCurrentArtifact] = useState(null);
+  const [selectedArtifact, setSelectedArtifact] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Load chat history from localStorage
-    const savedMessages = localStorage.getItem('ai_chat_history');
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Save messages to localStorage
-    if (messages.length > 0) {
-      localStorage.setItem('ai_chat_history', JSON.stringify(messages));
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       content: inputValue,
       isUser: true,
       timestamp: new Date(),
-      mode: selectedMode,
-      model: selectedModel
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -107,12 +54,26 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      // Simulate AI response (replace with actual API call)
-      await simulateAIResponse(inputValue, selectedMode, selectedModel);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const aiMessage: Message = {
+        id: `ai-${Date.now()}`,
+        content: `I understand you want to: "${inputValue}". This is a demo response. The AI chat functionality would be implemented here with your preferred AI service.`,
+        isUser: false,
+        timestamp: new Date(),
+        mode: 'canvas',
+        artifact: Math.random() > 0.7 ? {
+          type: 'react',
+          code: `import React from 'react';\n\nconst ExampleComponent = () => {\n  return (\n    <div className="p-4 bg-blue-100 rounded-lg">\n      <h2 className="text-xl font-bold mb-2">Generated Component</h2>\n      <p>This is an example artifact generated from your request.</p>\n    </div>\n  );\n};\n\nexport default ExampleComponent;`,
+          title: 'Example Component'
+        } : undefined,
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please check your API key.",
+        description: "Failed to send message. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -120,183 +81,103 @@ const ChatInterface = () => {
     }
   };
 
-  const simulateAIResponse = async (prompt: string, mode: string, model: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    let responseContent = '';
-    let artifact = null;
-
-    switch (mode) {
-      case 'canvas':
-        responseContent = `I'll create a visual artifact for you. Here's a React component based on your request: "${prompt}"`;
-        artifact = {
-          type: 'react',
-          code: generateSampleReactCode(prompt),
-          title: 'Generated Component'
-        };
-        break;
-      case 'research':
-        responseContent = `Based on my research about "${prompt}", here are the key findings:\n\n## Key Points\n- Research finding 1\n- Research finding 2\n- Research finding 3\n\n\`\`\`javascript\nconst example = "code snippet";\n\`\`\``;
-        break;
-      case 'web':
-        responseContent = `I searched the web for "${prompt}" and found relevant information:\n\n**Search Results:**\n- Result 1: Detailed information\n- Result 2: Additional context\n- Result 3: Supporting data`;
-        break;
-      case 'repositories':
-        responseContent = `Found relevant code repositories for "${prompt}":\n\n\`\`\`bash\ngit clone https://github.com/example/repo.git\n\`\`\`\n\n**Repository Analysis:**\n- Main language: JavaScript/TypeScript\n- Stars: 1.2k\n- Last updated: 2 days ago`;
-        break;
-      default:
-        responseContent = `Here's my response to: "${prompt}"`;
-    }
-
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: responseContent,
-      isUser: false,
-      timestamp: new Date(),
-      artifact,
-      mode,
-      model
-    };
-
-    setMessages(prev => [...prev, aiMessage]);
-
-    if (artifact) {
-      setCurrentArtifact(artifact);
-      setShowArtifact(true);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  const generateSampleReactCode = (prompt: string) => {
-    return `import React from 'react';
-
-const GeneratedComponent = () => {
-  return (
-    <div className="p-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg text-white">
-      <h2 className="text-2xl font-bold mb-4">Generated from: ${prompt}</h2>
-      <p className="text-lg">This is a sample component generated based on your prompt.</p>
-      <button className="mt-4 px-4 py-2 bg-white text-blue-600 rounded hover:bg-gray-100 transition-colors">
-        Interactive Button
-      </button>
-    </div>
-  );
-};
-
-export default GeneratedComponent;`;
+  const handleArtifactClick = (artifact: any) => {
+    setSelectedArtifact(artifact);
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    localStorage.removeItem('ai_chat_history');
-    setShowArtifact(false);
-    setCurrentArtifact(null);
+  const closeArtifact = () => {
+    setSelectedArtifact(null);
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Main Chat Area */}
-      <div className={`flex-1 flex flex-col ${showArtifact ? 'lg:w-1/2' : 'w-full'}`}>
-        {/* Header */}
-        <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 p-4">
+    <div className="h-screen flex">
+      <div className={`flex flex-col ${selectedArtifact ? 'lg:w-1/2' : 'w-full'} transition-all duration-300`}>
+        <header className="bg-white/10 backdrop-blur-xl border-b border-white/20 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-6 h-6 text-purple-300" />
-              <h1 className="text-xl font-bold text-white">AI Canvas</h1>
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-white">AI Chat Assistant</h1>
+              <div className="flex items-center space-x-2 text-white/60 text-sm">
+                <User className="w-4 h-4" />
+                <span>{user?.email}</span>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gpt-4o">GPT-4O</SelectItem>
-                  <SelectItem value="gpt-4o-mini">GPT-4O Mini</SelectItem>
-                  <SelectItem value="claude-3">Claude 3</SelectItem>
-                  <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearChat}
-                className="text-white hover:bg-white/10"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
+              {onShowSettings && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onShowSettings}
+                  className="text-white hover:bg-white/10"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-white/60 mt-20">
-              <Sparkles className="w-16 h-16 mx-auto mb-4 text-purple-300" />
-              <h2 className="text-2xl font-bold mb-2">Welcome to AI Canvas</h2>
-              <p className="text-lg">Choose a mode and start chatting with AI</p>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center text-white/60 mt-12">
+              <h2 className="text-xl mb-2">Welcome to AI Chat Assistant</h2>
+              <p>Start a conversation by typing a message below.</p>
             </div>
+          ) : (
+            messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                onArtifactClick={() => message.artifact && handleArtifactClick(message.artifact)}
+              />
+            ))
           )}
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onArtifactClick={() => {
-                if (message.artifact) {
-                  setCurrentArtifact(message.artifact);
-                  setShowArtifact(true);
-                }
-              }}
-            />
-          ))}
           {isLoading && (
-            <div className="flex items-center space-x-2 text-white/60">
-              <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              <span className="ml-2">AI is thinking...</span>
+            <div className="flex justify-start mb-4">
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 max-w-[80%]">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-75"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-150"></div>
+                </div>
+              </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* AI Mode Selection */}
-        <div className="p-4 backdrop-blur-xl bg-white/5 border-t border-white/20">
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            {aiModes.map((mode) => (
-              <button
-                key={mode.id}
-                onClick={() => setSelectedMode(mode.id)}
-                className={`p-3 rounded-xl transition-all duration-200 ${
-                  selectedMode === mode.id
-                    ? `bg-gradient-to-r ${mode.color} shadow-lg scale-105`
-                    : 'bg-white/10 hover:bg-white/20'
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-1">
-                  <div className="text-white">{mode.icon}</div>
-                  <span className="text-xs text-white font-medium">{mode.name}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div className="flex space-x-2">
+        <div className="p-6 bg-white/5 backdrop-blur-xl border-t border-white/20">
+          <div className="flex items-end space-x-2">
             <div className="flex-1 relative">
-              <input
-                type="text"
+              <Textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={`Ask AI in ${aiModes.find(m => m.id === selectedMode)?.name} mode...`}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message here..."
+                className="min-h-[60px] max-h-32 resize-none bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-20"
                 disabled={isLoading}
               />
+              <div className="absolute right-2 bottom-2 flex space-x-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white/60 hover:text-white hover:bg-white/10"
+                  disabled={isLoading}
+                >
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <Button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading}
-              className="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white h-[60px] px-6"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -304,11 +185,10 @@ export default GeneratedComponent;`;
         </div>
       </div>
 
-      {/* Artifact Preview */}
-      {showArtifact && currentArtifact && (
+      {selectedArtifact && (
         <ArtifactPreview
-          artifact={currentArtifact}
-          onClose={() => setShowArtifact(false)}
+          artifact={selectedArtifact}
+          onClose={closeArtifact}
         />
       )}
     </div>

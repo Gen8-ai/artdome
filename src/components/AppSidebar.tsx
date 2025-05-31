@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Bot, Settings, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,9 +24,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 import PreferencesPanel from './PreferencesPanel';
 import ConversationList from './ConversationList';
+import SettingsPage from './auth/SettingsPage';
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const {
     models,
     prompts,
@@ -43,6 +46,26 @@ const AppSidebar = () => {
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const handleProfileClick = () => {
+    setShowProfile(true);
+    setShowSettings(false);
+  };
+
+  const handleSettingsClick = () => {
+    setShowSettings(true);
+    setShowProfile(false);
+  };
+
+  const handleBackToChat = () => {
+    setShowSettings(false);
+    setShowProfile(false);
+  };
+
+  // Show settings page if either profile or settings is selected
+  if (showSettings || showProfile) {
+    return <SettingsPage onBack={handleBackToChat} />;
+  }
 
   return (
     <Sidebar>
@@ -96,7 +119,7 @@ const AppSidebar = () => {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleProfileClick}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
@@ -114,7 +137,7 @@ const AppSidebar = () => {
                 />
                 <span className="ml-2">AI Preferences</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSettingsClick}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>App Settings</span>
               </DropdownMenuItem>

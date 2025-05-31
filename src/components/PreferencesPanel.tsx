@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Settings } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -55,14 +55,9 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          disabled={disabled}
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center cursor-pointer">
+          <Sliders className="h-4 w-4" />
+        </div>
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[540px]">
         <SheetHeader>

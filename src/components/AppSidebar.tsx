@@ -1,8 +1,16 @@
 
 import React from 'react';
-import { Bot, Settings, User } from 'lucide-react';
+import { Bot, Settings, User, LogOut, Sliders } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +26,7 @@ import ModelSelector from './ModelSelector';
 import PreferencesPanel from './PreferencesPanel';
 
 const AppSidebar = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const {
     models,
     prompts,
@@ -32,25 +40,16 @@ const AppSidebar = () => {
     setParameters,
   } = useAI();
 
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Bot className="w-6 h-6 text-primary" />
-            <span className="font-semibold text-lg">AI Assistant</span>
-          </div>
-          <PreferencesPanel
-            models={models || []}
-            prompts={prompts || []}
-            selectedModelId={selectedModelId}
-            selectedPromptId={selectedPromptId}
-            parameters={parameters}
-            onModelChange={setSelectedModelId}
-            onPromptChange={setSelectedPromptId}
-            onParametersChange={setParameters}
-            disabled={modelsLoading || promptsLoading}
-          />
+        <div className="flex items-center space-x-2">
+          <Bot className="w-6 h-6 text-primary" />
+          <span className="font-semibold text-lg">AI Assistant</span>
         </div>
         
         <ModelSelector
@@ -92,9 +91,45 @@ const AppSidebar = () => {
               {user?.email}
             </p>
           </div>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Settings className="w-4 h-4" />
-          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <PreferencesPanel
+                  models={models || []}
+                  prompts={prompts || []}
+                  selectedModelId={selectedModelId}
+                  selectedPromptId={selectedPromptId}
+                  parameters={parameters}
+                  onModelChange={setSelectedModelId}
+                  onPromptChange={setSelectedPromptId}
+                  onParametersChange={setParameters}
+                  disabled={modelsLoading || promptsLoading}
+                />
+                <span className="ml-2">AI Preferences</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>App Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </SidebarFooter>
     </Sidebar>

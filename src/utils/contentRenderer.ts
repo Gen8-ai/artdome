@@ -115,16 +115,61 @@ export class ContentRenderer {
       }
     }
 
-    return this.createHTMLTemplate({
-      code: processedCode,
-      type: block.type,
-      title: block.title || 'Preview',
-      additionalCSS,
-      includeTailwind,
-      includeLucideIcons,
-      includeShadcnUI,
-      theme
-    });
+    try {
+      const htmlContent = this.createHTMLTemplate({
+        code: processedCode,
+        type: block.type,
+        title: block.title || 'Preview',
+        additionalCSS,
+        includeTailwind,
+        includeLucideIcons,
+        includeShadcnUI,
+        theme
+      });
+
+      // Validate the generated HTML
+      if (!htmlContent || htmlContent.length < 100) {
+        throw new Error('Generated HTML template is invalid or too short');
+      }
+
+      return htmlContent;
+    } catch (error) {
+      console.error('HTML template generation failed:', error);
+      return this.createErrorTemplate(error instanceof Error ? error.message : 'Template generation failed');
+    }
+  }
+
+  private createErrorTemplate(errorMessage: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 20px;
+      background: #fef2f2;
+      color: #dc2626;
+    }
+    .error-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <h3>⚠️ Template Error</h3>
+    <p>${errorMessage}</p>
+  </div>
+</body>
+</html>`;
   }
 
   private createHTMLTemplate({
@@ -149,12 +194,20 @@ export class ContentRenderer {
     const tailwindCSS = includeTailwind ? this.getTailwindCSS() : '';
     const themeClasses = theme === 'dark' ? 'dark' : '';
 
+    // Safely escape the code for injection into JavaScript
+    const safeCode = this.escapeCodeForScript(code);
+    
+    // Pre-compute component detection pattern safely
+    const componentPattern = /(?:function|const)\s+([A-Z]\w*)\s*[=(]/;
+    const componentMatch = code.match(componentPattern);
+    const potentialComponentName = componentMatch ? componentMatch[1] : null;
+
     return `<!DOCTYPE html>
 <html lang="en" class="${themeClasses}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${this.escapeHtml(title)}</title>
   
   ${includeTailwind ? `<script src="https://cdn.tailwindcss.com"></script>` : ''}
   
@@ -206,7 +259,7 @@ export class ContentRenderer {
   </style>
 </head>
 <body>
-  <div id="root">${type === 'html' ? code : ''}</div>
+  <div id="root">${type === 'html' ? this.escapeHtml(code) : ''}</div>
   
   ${type === 'react' || type === 'javascript' ? `
     <!-- Load React libraries in correct order -->
@@ -235,9 +288,8 @@ export class ContentRenderer {
       window.setupLucideIcons = function() {
         if (window.LucideReact) {
           // Common icons as globals
-          const iconNames = ['Home', 'Settings', 'User', 'Search', 'Menu', 'X', 'Plus', 'Minus', 'Edit', 'Delete', 'Save', 'Cancel', 'Check', 'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'Arrow-up', 'Arrow-down'];
+          const iconNames = ['Home', 'Settings', 'User', 'Search', 'Menu', 'X', 'Plus', 'Minus', 'Edit', 'Delete', 'Save', 'Cancel', 'Check', 'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'ArrowUp', 'ArrowDown'];
           iconNames.forEach(iconName => {
-            const kebabName = iconName.toLowerCase().replace(/([A-Z])/g, '-$1').replace(/^-/, '');
             if (window.LucideReact[iconName]) {
               window[iconName] = window.LucideReact[iconName];
             }
@@ -320,7 +372,9 @@ export class ContentRenderer {
     <!-- User code execution -->
     <script>
       try {
-        ${code}
+        // Safely execute user code
+        const userCode = ${safeCode};
+        eval(userCode);
         
         // Auto-detect and render component
         const rootElement = document.getElementById('root');
@@ -331,19 +385,15 @@ export class ContentRenderer {
           ComponentToRender = App;
         } else if (typeof Component !== 'undefined') {
           ComponentToRender = Component;
+        } else if (${JSON.stringify(potentialComponentName)} && typeof window[${JSON.stringify(potentialComponentName)}] !== 'undefined') {
+          ComponentToRender = window[${JSON.stringify(potentialComponentName)}];
         } else {
           // Try to find any function that looks like a React component
-          const componentMatch = \`${code}\`.match(/(?:function|const)\\s+([A-Z]\\w*)\\s*[=(]/);
-          if (componentMatch) {
-            const componentName = componentMatch[1];
-            if (typeof window[componentName] !== 'undefined') {
-              ComponentToRender = window[componentName];
-            } else {
-              try {
-                ComponentToRender = eval(componentName);
-              } catch (e) {
-                console.warn('Could not evaluate component:', componentName, e);
-              }
+          const globalNames = Object.getOwnPropertyNames(window);
+          for (const name of globalNames) {
+            if (/^[A-Z]/.test(name) && typeof window[name] === 'function') {
+              ComponentToRender = window[name];
+              break;
             }
           }
         }
@@ -372,7 +422,8 @@ export class ContentRenderer {
   ${type === 'javascript' ? `
     <script>
       try {
-        ${code}
+        const userCode = ${safeCode};
+        eval(userCode);
       } catch (error) {
         console.error('JavaScript execution error:', error);
         document.getElementById('root').innerHTML = \`
@@ -388,11 +439,22 @@ export class ContentRenderer {
   
   ${type === 'css' ? `
     <style>
-      ${code}
+      ${this.escapeHtml(code)}
     </style>
   ` : ''}
 </body>
 </html>`;
+  }
+
+  private escapeCodeForScript(code: string): string {
+    // Use JSON.stringify to safely escape the code for JavaScript injection
+    return JSON.stringify(code);
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   private getTailwindCSS(): string {

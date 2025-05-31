@@ -1,7 +1,8 @@
+
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { atomDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { User, Bot, Code2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,7 +77,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                   
                   return !isInline ? (
                     <SyntaxHighlighter
-                      style={atomDark as any}
+                      style={atomDark}
                       language={match[1]}
                       PreTag="div"
                       className="rounded-lg"

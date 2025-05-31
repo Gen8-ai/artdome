@@ -26,6 +26,6 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    include: ['react-syntax-highlighter'],
+    include: ['react-syntax-highlighter', 'react-syntax-highlighter/dist/esm/styles/prism'],
   },
 }));

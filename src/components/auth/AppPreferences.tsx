@@ -99,9 +99,9 @@ const AppPreferences = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl backdrop-blur-xl bg-white/10 border-white/20">
+    <Card className="w-full max-w-2xl bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-white flex items-center gap-2">
+        <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Settings className="h-6 w-6" />
           App Preferences
         </CardTitle>
@@ -109,11 +109,11 @@ const AppPreferences = () => {
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="theme" className="text-white">Theme</Label>
+            <Label htmlFor="theme" className="text-foreground">Theme</Label>
             <Select value={preferences.theme} onValueChange={(value: 'light' | 'dark' | 'system') => 
               setPreferences({ ...preferences, theme: value })
             }>
-              <SelectTrigger className="bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="bg-background border-border text-foreground">
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>
@@ -125,11 +125,11 @@ const AppPreferences = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="language" className="text-white">Language</Label>
+            <Label htmlFor="language" className="text-foreground">Language</Label>
             <Select value={preferences.language} onValueChange={(value) => 
               setPreferences({ ...preferences, language: value })
             }>
-              <SelectTrigger className="bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="bg-background border-border text-foreground">
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>
               <SelectContent>
@@ -147,8 +147,8 @@ const AppPreferences = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between space-x-2">
             <div className="space-y-1">
-              <Label htmlFor="notifications" className="text-white">Enable Notifications</Label>
-              <p className="text-sm text-white/60">Receive push notifications for updates</p>
+              <Label htmlFor="notifications" className="text-foreground">Enable Notifications</Label>
+              <p className="text-sm text-muted-foreground">Receive push notifications for updates</p>
             </div>
             <Switch
               id="notifications"
@@ -161,8 +161,8 @@ const AppPreferences = () => {
 
           <div className="flex items-center justify-between space-x-2">
             <div className="space-y-1">
-              <Label htmlFor="email-notifications" className="text-white">Email Notifications</Label>
-              <p className="text-sm text-white/60">Receive notifications via email</p>
+              <Label htmlFor="email-notifications" className="text-foreground">Email Notifications</Label>
+              <p className="text-sm text-muted-foreground">Receive notifications via email</p>
             </div>
             <Switch
               id="email-notifications"
@@ -175,8 +175,8 @@ const AppPreferences = () => {
 
           <div className="flex items-center justify-between space-x-2">
             <div className="space-y-1">
-              <Label htmlFor="auto-save" className="text-white">Auto Save</Label>
-              <p className="text-sm text-white/60">Automatically save your work</p>
+              <Label htmlFor="auto-save" className="text-foreground">Auto Save</Label>
+              <p className="text-sm text-muted-foreground">Automatically save your work</p>
             </div>
             <Switch
               id="auto-save"
@@ -191,7 +191,7 @@ const AppPreferences = () => {
         <Button
           onClick={updatePreferences}
           disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {loading ? 'Saving...' : 'Save Preferences'}
         </Button>

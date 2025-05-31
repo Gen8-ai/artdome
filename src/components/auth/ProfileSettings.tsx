@@ -111,9 +111,9 @@ const ProfileSettings = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl backdrop-blur-xl bg-white/10 border-white/20">
+    <Card className="w-full max-w-2xl bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-white flex items-center gap-2">
+        <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
           <User className="h-6 w-6" />
           Profile Settings
         </CardTitle>
@@ -122,51 +122,51 @@ const ProfileSettings = () => {
         <div className="flex items-center space-x-4">
           <Avatar className="h-20 w-20">
             <AvatarImage src={profile.avatar_url} />
-            <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-lg">
+            <AvatarFallback className="bg-primary text-primary-foreground text-lg">
               {profile.full_name ? getInitials(profile.full_name) : <User className="h-8 w-8" />}
             </AvatarFallback>
           </Avatar>
           <div className="space-y-2">
-            <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+            <Button variant="outline" className="border-border text-foreground hover:bg-accent">
               <Upload className="h-4 w-4 mr-2" />
               Upload Photo
             </Button>
-            <p className="text-sm text-white/60">JPG, PNG or GIF. Max 2MB.</p>
+            <p className="text-sm text-muted-foreground">JPG, PNG or GIF. Max 2MB.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName" className="text-white">Full Name</Label>
+            <Label htmlFor="fullName" className="text-foreground">Full Name</Label>
             <Input
               id="fullName"
               value={profile.full_name}
               onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-              className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
               placeholder="Enter your full name"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-white">Email</Label>
+            <Label htmlFor="email" className="text-foreground">Email</Label>
             <Input
               id="email"
               type="email"
               value={profile.email}
               onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
               placeholder="Enter your email"
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bio" className="text-white">Bio</Label>
+          <Label htmlFor="bio" className="text-foreground">Bio</Label>
           <Textarea
             id="bio"
             value={profile.bio}
             onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-            className="bg-white/10 border-white/20 text-white placeholder:text-white/60 min-h-[100px]"
+            className="bg-background border-border text-foreground placeholder:text-muted-foreground min-h-[100px]"
             placeholder="Tell us about yourself..."
           />
         </div>
@@ -174,7 +174,7 @@ const ProfileSettings = () => {
         <Button
           onClick={updateProfile}
           disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {loading ? 'Saving...' : 'Save Changes'}
         </Button>

@@ -18,7 +18,7 @@ export const useAI = () => {
   const queryClient = useQueryClient();
   
   // State management for AI settings
-  const [selectedModelId, setSelectedModelId] = useState<string>('gpt-4o-mini');
+  const [selectedModelId, setSelectedModelId] = useState<string>('gpt-4o');
   const [selectedPromptId, setSelectedPromptId] = useState<string>('');
   const [parameters, setParameters] = useState<AIParameters>({
     temperature: 0.7,

@@ -250,8 +250,13 @@ export class ErrorBoundaryManager {
       });
 
       window.addEventListener('unhandledrejection', (event) => {
+        // Convert the rejection reason to a proper Error object
+        const errorMessage = typeof event.reason === 'string' 
+          ? event.reason 
+          : event.reason?.message || String(event.reason);
+          
         this.reportError({
-          error: new Error(String(event.reason)),
+          error: new Error(errorMessage),
           errorInfo: { componentStack: '' },
           componentStack: '',
           timestamp: Date.now()

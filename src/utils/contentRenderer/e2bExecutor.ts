@@ -65,8 +65,8 @@ export class E2BExecutor {
       // Execute the code
       logs.push('Executing code...');
       const execution = await interpreter.notebook.execCell(code, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -131,8 +131,8 @@ export class E2BExecutor {
       // Execute the entry point
       logs.push(`Executing entry point: ${entryPoint}`);
       const execution = await interpreter.notebook.execCell(`exec(open('${entryPoint}').read())`, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -184,7 +184,7 @@ export class E2BExecutor {
 
     const interpreter = await CodeInterpreter.create({
       apiKey: this.config.apiKey,
-      timeout: this.config.timeout
+      timeoutMs: this.config.timeout
     });
 
     this.activeInterpreters.set(sessionId, interpreter);
@@ -240,14 +240,14 @@ export class E2BExecutor {
   async closeSession(sessionId: string = 'default'): Promise<void> {
     const interpreter = this.activeInterpreters.get(sessionId);
     if (interpreter) {
-      await interpreter.close();
+      await interpreter.kill();
       this.activeInterpreters.delete(sessionId);
     }
   }
 
   async closeAllSessions(): Promise<void> {
     const closePromises = Array.from(this.activeInterpreters.values()).map(
-      interpreter => interpreter.close()
+      interpreter => interpreter.kill()
     );
     await Promise.all(closePromises);
     this.activeInterpreters.clear();

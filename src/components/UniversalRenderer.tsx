@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
+import { pipelineManager } from '@/utils/pipelineManager';
 import ReactRenderer from './ReactRenderer';
 
 interface UniversalRendererProps {
@@ -36,23 +37,23 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
 
         console.log('Starting content compilation for type:', block.type);
         
-        // Special handling for artifact type
-        if (block.type === 'artifact') {
-          const htmlContent = await renderArtifactContent(block);
-          if (iframeRef.current) {
-            iframeRef.current.srcdoc = htmlContent;
+        // Use pipeline manager to execute rendering steps
+        const htmlContent = await pipelineManager.executeStage('preview', async () => {
+          // Special handling for artifact type
+          if (block.type === 'artifact') {
+            return await renderArtifactContent(block);
+          } else {
+            return await contentRenderer.generateHtmlDocument(block, {
+              ...options,
+              useCompilation: true
+            });
           }
-        } else {
-          const htmlContent = await contentRenderer.generateHtmlDocument(block, {
-            ...options,
-            useCompilation: true
-          });
+        });
 
-          // Double-check the ref is still valid before setting srcdoc
-          if (iframeRef.current) {
-            iframeRef.current.srcdoc = htmlContent;
-            console.log('Content rendered successfully');
-          }
+        // Double-check the ref is still valid before setting srcdoc
+        if (iframeRef.current && htmlContent) {
+          iframeRef.current.srcdoc = htmlContent;
+          console.log('Content rendered successfully');
         }
       } catch (err) {
         console.error('Rendering error:', err);
@@ -129,7 +130,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   );
 };
 
-// Helper function to render artifact content
+// Helper function to render artifact content with secure injection
 async function renderArtifactContent(block: ContentBlock): Promise<string> {
   const { code, title, description } = block;
   
@@ -140,6 +141,9 @@ async function renderArtifactContent(block: ContentBlock): Promise<string> {
 
   // If it looks like React/JSX
   if (code.includes('React') || code.includes('jsx') || code.includes('useState')) {
+    // Use safe JSON encoding to prevent syntax errors
+    const safeCode = JSON.stringify(code);
+    
     return `
 <!DOCTYPE html>
 <html>
@@ -157,30 +161,49 @@ async function renderArtifactContent(block: ContentBlock): Promise<string> {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: #fff;
     }
+    .error-display {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: monospace;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    ${code}
-    
-    const rootElement = document.getElementById('root');
-    if (typeof App !== 'undefined') {
-      ReactDOM.render(React.createElement(App), rootElement);
-    } else {
-      const componentMatch = ${JSON.stringify(code)}.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
-      if (componentMatch) {
-        const ComponentName = componentMatch[1];
-        try {
-          const Component = eval(ComponentName);
-          if (typeof Component === 'function') {
-            ReactDOM.render(React.createElement(Component), rootElement);
+    try {
+      // Safely inject code using JSON.stringify
+      const userCode = ${safeCode};
+      eval(userCode);
+      
+      const rootElement = document.getElementById('root');
+      if (typeof App !== 'undefined') {
+        ReactDOM.render(React.createElement(App), rootElement);
+      } else {
+        const componentMatch = userCode.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
+        if (componentMatch) {
+          const ComponentName = componentMatch[1];
+          try {
+            const Component = eval(ComponentName);
+            if (typeof Component === 'function') {
+              ReactDOM.render(React.createElement(Component), rootElement);
+            }
+          } catch (e) {
+            console.error('Could not render component:', e);
+            rootElement.innerHTML = '<div class="error-display">Error rendering component: ' + e.message + '</div>';
           }
-        } catch (e) {
-          console.error('Could not render component:', e);
-          rootElement.innerHTML = '<div style="color: red; padding: 20px;">Error rendering component: ' + e.message + '</div>';
+        } else {
+          rootElement.innerHTML = '<div class="error-display">No valid React component found</div>';
         }
       }
+    } catch (error) {
+      console.error('Artifact render error:', error);
+      document.getElementById('root').innerHTML = '<div class="error-display">Render Error: ' + error.message + '</div>';
     }
   </script>
 </body>

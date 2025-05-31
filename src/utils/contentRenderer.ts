@@ -1,5 +1,6 @@
-
 import { CodeCompiler, codeCompiler } from './codeCompiler';
+import { dependencyAnalyzer } from './dependencyAnalyzer';
+import { eslintIntegration } from './eslintIntegration';
 
 export interface ContentBlock {
   type: 'html' | 'css' | 'javascript' | 'react' | 'artifact';
@@ -97,10 +98,23 @@ export class ContentRenderer {
     let processedCode = block.code;
     let additionalCSS = '';
 
+    // Analyze dependencies
+    const dependencies = dependencyAnalyzer.analyzeCode(block.code);
+    console.log('Detected dependencies:', dependencies);
+
+    // Lint code if it's React or JavaScript
+    if (block.type === 'react' || block.type === 'javascript') {
+      const lintResult = await eslintIntegration.lintCode(block.code, block.type);
+      if (!lintResult.valid && lintResult.fixedCode) {
+        console.log('Code has lint issues, using auto-fixed version');
+        processedCode = lintResult.fixedCode;
+      }
+    }
+
     // Compile code if requested
     if (useCompilation && (block.type === 'react' || block.type === 'javascript')) {
       try {
-        const result = await codeCompiler.compileCode(block.code, block.type, {
+        const result = await codeCompiler.compileCode(processedCode, block.type, {
           includeTailwind,
           includeLucideIcons,
           includeShadcnUI
@@ -194,13 +208,14 @@ export class ContentRenderer {
     const tailwindCSS = includeTailwind ? this.getTailwindCSS() : '';
     const themeClasses = theme === 'dark' ? 'dark' : '';
 
-    // Safely escape the code for injection into JavaScript
-    const safeCode = this.escapeCodeForScript(code);
+    // Safely escape the code for injection into JavaScript - this fixes the syntax error
+    const safeCode = JSON.stringify(code);
     
     // Pre-compute component detection pattern safely
     const componentPattern = /(?:function|const)\s+([A-Z]\w*)\s*[=(]/;
     const componentMatch = code.match(componentPattern);
     const potentialComponentName = componentMatch ? componentMatch[1] : null;
+    const safeComponentName = JSON.stringify(potentialComponentName);
 
     return `<!DOCTYPE html>
 <html lang="en" class="${themeClasses}">
@@ -256,13 +271,24 @@ export class ContentRenderer {
       background-color: hsl(var(--background));
       color: hsl(var(--foreground));
     }
+
+    .error-display {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: monospace;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div id="root">${type === 'html' ? this.escapeHtml(code) : ''}</div>
   
   ${type === 'react' || type === 'javascript' ? `
-    <!-- Load React libraries in correct order -->
+    <!-- Load React libraries in correct order with proper UMD builds -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
@@ -276,10 +302,11 @@ export class ContentRenderer {
       window.exports = {};
       window.module = { exports: {} };
       
-      // Mock require for compatibility
+      // Mock require for compatibility - this prevents require errors
       window.require = function(module) {
         if (module === 'react') return window.React;
         if (module === 'react-dom') return window.ReactDOM;
+        console.warn('Module not available:', module);
         return {};
       };
       
@@ -344,16 +371,7 @@ export class ContentRenderer {
         render() {
           if (this.state.hasError) {
             return React.createElement('div', {
-              style: {
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#dc2626',
-                padding: '12px',
-                borderRadius: '6px',
-                margin: '10px 0',
-                fontFamily: 'monospace',
-                fontSize: '14px'
-              }
+              className: 'error-display'
             }, [
               React.createElement('h3', { key: 'title' }, '⚠️ Component Error'),
               React.createElement('p', { key: 'message' }, this.state.error)
@@ -372,7 +390,7 @@ export class ContentRenderer {
     <!-- User code execution -->
     <script>
       try {
-        // Safely execute user code
+        // Safely execute user code using JSON.stringify to prevent injection
         const userCode = ${safeCode};
         eval(userCode);
         
@@ -385,8 +403,8 @@ export class ContentRenderer {
           ComponentToRender = App;
         } else if (typeof Component !== 'undefined') {
           ComponentToRender = Component;
-        } else if (${JSON.stringify(potentialComponentName)} && typeof window[${JSON.stringify(potentialComponentName)}] !== 'undefined') {
-          ComponentToRender = window[${JSON.stringify(potentialComponentName)}];
+        } else if (${safeComponentName} && typeof window[${safeComponentName}] !== 'undefined') {
+          ComponentToRender = window[${safeComponentName}];
         } else {
           // Try to find any function that looks like a React component
           const globalNames = Object.getOwnPropertyNames(window);
@@ -404,12 +422,12 @@ export class ContentRenderer {
             rootElement
           );
         } else {
-          rootElement.innerHTML = '<div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;"><h3>⚠️ No Component Found</h3><p>Make sure to define a React component function (e.g., App, Component, or any function starting with uppercase).</p></div>';
+          rootElement.innerHTML = '<div class="error-display"><h3>⚠️ No Component Found</h3><p>Make sure to define a React component function (e.g., App, Component, or any function starting with uppercase).</p></div>';
         }
       } catch (error) {
         console.error('Failed to render React component:', error);
         document.getElementById('root').innerHTML = \`
-          <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;">
+          <div class="error-display">
             <h3>⚠️ Render Error</h3>
             <p>\${error.message}</p>
             <pre style="font-size: 12px; margin-top: 8px;">\${error.stack}</pre>
@@ -427,7 +445,7 @@ export class ContentRenderer {
       } catch (error) {
         console.error('JavaScript execution error:', error);
         document.getElementById('root').innerHTML = \`
-          <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;">
+          <div class="error-display">
             <h3>⚠️ JavaScript Error</h3>
             <p>\${error.message}</p>
             <pre style="font-size: 12px; margin-top: 8px;">\${error.stack}</pre>

@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
 import { pipelineManager } from '@/utils/pipelineManager';
 import { e2bIntegration } from '@/utils/contentRenderer/e2bIntegration';
+import { artifactInjector, InjectionOptions } from '@/utils/contentRenderer/artifactInjector';
 import ReactRenderer from './ReactRenderer';
 
 interface UniversalRendererProps {
@@ -19,19 +20,15 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   onCompilationEnd
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isIframeMounted, setIsIframeMounted] = useState(false);
-  const [executionMethod, setExecutionMethod] = useState<'iframe' | 'e2b'>('iframe');
+  const [executionMethod, setExecutionMethod] = useState<'iframe' | 'e2b' | 'module'>('iframe');
+  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(null);
 
   useEffect(() => {
     const renderContent = async () => {
-      // Wait for iframe to be mounted for iframe rendering
-      if (executionMethod === 'iframe' && (!isIframeMounted || !iframeRef.current)) {
-        console.log('Iframe not ready, waiting...');
-        return;
-      }
-
       try {
         setIsLoading(true);
         setError(null);
@@ -41,13 +38,27 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         
         // Determine execution method
         const shouldUseE2B = e2bIntegration.shouldUseE2B(block);
-        const currentMethod = shouldUseE2B ? 'e2b' : 'iframe';
+        const shouldUseModule = block.type === 'artifact' || block.type === 'react';
+        
+        let currentMethod: 'iframe' | 'e2b' | 'module' = 'iframe';
+        
+        if (shouldUseE2B) {
+          currentMethod = 'e2b';
+        } else if (shouldUseModule && containerRef.current) {
+          currentMethod = 'module';
+        }
+        
         setExecutionMethod(currentMethod);
 
-        if (shouldUseE2B) {
+        if (currentMethod === 'e2b') {
           console.log('Using E2B execution for secure code execution');
           
-          // Use E2B for secure execution
+          // Wait for iframe to be mounted for E2B rendering
+          if (!isIframeMounted || !iframeRef.current) {
+            console.log('Iframe not ready for E2B, waiting...');
+            return;
+          }
+          
           const e2bResult = await e2bIntegration.renderWithE2B(block, {
             timeout: 30000,
             enableFileSystem: true
@@ -57,9 +68,46 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             iframeRef.current.srcdoc = e2bResult.html;
             console.log('E2B content rendered successfully');
           }
+          
+        } else if (currentMethod === 'module' && containerRef.current) {
+          console.log('Using module wrapper for artifact injection');
+          
+          // Unmount previous artifact if exists
+          if (currentArtifactId) {
+            artifactInjector.unmountArtifact(currentArtifactId);
+          }
+          
+          // Inject artifact using module wrapper
+          const injectionOptions: InjectionOptions = {
+            isolateGlobals: true,
+            enableHMR: true,
+            onMount: (exports) => {
+              console.log('Artifact mounted successfully:', exports);
+            },
+            onError: (error) => {
+              console.error('Artifact injection error:', error);
+              setError(error.message);
+            }
+          };
+          
+          const artifact = await artifactInjector.injectArtifact(
+            block, 
+            containerRef.current, 
+            injectionOptions
+          );
+          
+          setCurrentArtifactId(artifact.id);
+          console.log('Module content rendered successfully');
+          
         } else {
           console.log('Using traditional iframe rendering');
           
+          // Wait for iframe to be mounted for iframe rendering
+          if (!isIframeMounted || !iframeRef.current) {
+            console.log('Iframe not ready, waiting...');
+            return;
+          }
+
           // Use pipeline manager to execute rendering steps
           const htmlContent = await pipelineManager.executeStage('preview', async () => {
             // Special handling for artifact type
@@ -83,8 +131,8 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         console.error('Rendering error:', err);
         setError(err instanceof Error ? err.message : 'Rendering failed');
         
-        // Set error content in iframe
-        if (iframeRef.current) {
+        // Set error content in iframe if not using module injection
+        if (executionMethod !== 'module' && iframeRef.current) {
           iframeRef.current.srcdoc = createErrorContent(err instanceof Error ? err.message : 'Rendering failed');
         }
       } finally {
@@ -96,6 +144,15 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
     renderContent();
   }, [block, options, isIframeMounted, onCompilationStart, onCompilationEnd]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (currentArtifactId) {
+        artifactInjector.unmountArtifact(currentArtifactId);
+      }
+    };
+  }, [currentArtifactId]);
+
   // Handle iframe mount/unmount
   const handleIframeRef = (iframe: HTMLIFrameElement | null) => {
     if (iframe) {
@@ -106,7 +163,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   };
 
   // Handle special cases
-  if (block.type === 'react' && !options.useCompilation) {
+  if (block.type === 'react' && !options.useCompilation && executionMethod !== 'module') {
     return <ReactRenderer code={block.code} />;
   }
 
@@ -137,6 +194,17 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
                 </ul>
               </div>
             )}
+            {executionMethod === 'module' && (
+              <div className="text-sm text-gray-600 mt-2">
+                <p>Module injection failed. This might be due to:</p>
+                <ul className="text-left mt-1 space-y-1">
+                  <li>• Code syntax errors</li>
+                  <li>• Missing dependencies</li>
+                  <li>• Runtime exceptions</li>
+                  <li>• Invalid component structure</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -149,11 +217,18 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">
-            {executionMethod === 'e2b' ? 'Executing code securely with E2B...' : 'Compiling and rendering...'}
+            {executionMethod === 'e2b' ? 'Executing code securely with E2B...' : 
+             executionMethod === 'module' ? 'Injecting module into application...' : 
+             'Compiling and rendering...'}
           </p>
           {executionMethod === 'e2b' && (
             <p className="text-xs text-gray-500 mt-2">
               Secure execution environment • Multi-language support
+            </p>
+          )}
+          {executionMethod === 'module' && (
+            <p className="text-xs text-gray-500 mt-2">
+              Isolated module execution • Hot module replacement
             </p>
           )}
         </div>
@@ -162,15 +237,32 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   }
 
   return (
-    <iframe
-      ref={(iframe) => {
-        iframeRef.current = iframe;
-        handleIframeRef(iframe);
-      }}
-      className="w-full h-full border-0"
-      sandbox="allow-scripts allow-forms allow-same-origin"
-      title={`${block.type} content preview ${executionMethod === 'e2b' ? '(E2B Secure)' : ''}`}
-    />
+    <div className="w-full h-full relative">
+      {/* Module container for direct injection */}
+      {executionMethod === 'module' && (
+        <div
+          ref={containerRef}
+          className="w-full h-full"
+          style={{ minHeight: '200px' }}
+        />
+      )}
+      
+      {/* Iframe for traditional rendering and E2B */}
+      {executionMethod !== 'module' && (
+        <iframe
+          ref={(iframe) => {
+            iframeRef.current = iframe;
+            handleIframeRef(iframe);
+          }}
+          className="w-full h-full border-0"
+          sandbox="allow-scripts allow-forms allow-same-origin"
+          title={`${block.type} content preview ${
+            executionMethod === 'e2b' ? '(E2B Secure)' : 
+            executionMethod === 'module' ? '(Module Wrapped)' : ''
+          }`}
+        />
+      )}
+    </div>
   );
 };
 

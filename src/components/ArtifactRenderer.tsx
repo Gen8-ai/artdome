@@ -7,9 +7,15 @@ interface ArtifactRendererProps {
   code: string;
   title?: string;
   description?: string;
+  useModuleWrapper?: boolean;
 }
 
-const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ code, title, description }) => {
+const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ 
+  code, 
+  title, 
+  description, 
+  useModuleWrapper = true 
+}) => {
   // Create a content block for the UniversalRenderer
   const block: ContentBlock = {
     type: 'artifact',
@@ -23,7 +29,7 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ code, title, descri
       block={block}
       options={{
         theme: 'light',
-        useCompilation: false,
+        useCompilation: !useModuleWrapper, // Use compilation for iframe, not for module wrapper
         includeTailwind: true,
         includeLucideIcons: true,
         includeShadcnUI: true

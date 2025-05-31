@@ -1,12 +1,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Settings, User } from 'lucide-react';
+import { Send, Paperclip, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import ChatMessage from './ChatMessage';
 import ArtifactPreview from './ArtifactPreview';
+import AISettings from './AISettings';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAI } from '@/hooks/useAI';
 
 interface Message {
   id: string;
@@ -25,11 +27,22 @@ interface ChatInterfaceProps {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedArtifact, setSelectedArtifact] = useState<any>(null);
+  const [conversationId, setConversationId] = useState<string>();
+  const [selectedModelId, setSelectedModelId] = useState<string>();
+  const [selectedPromptId, setSelectedPromptId] = useState<string>();
+  const [parameters, setParameters] = useState({
+    temperature: 0.7,
+    max_tokens: 1000,
+    top_p: 1.0,
+    frequency_penalty: 0.0,
+    presence_penalty: 0.0,
+  });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { models, prompts, modelsLoading, promptsLoading, sendMessage, isLoading } = useAI();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,6 +51,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Set default model when models load
+  useEffect(() => {
+    if (models && models.length > 0 && !selectedModelId) {
+      setSelectedModelId(models[0].id);
+    }
+  }, [models, selectedModelId]);
+
+  // Set default prompt when prompts load
+  useEffect(() => {
+    if (prompts && prompts.length > 0 && !selectedPromptId) {
+      const defaultPrompt = prompts.find(p => p.name === 'Default Assistant');
+      if (defaultPrompt) {
+        setSelectedPromptId(defaultPrompt.id);
+      }
+    }
+  }, [prompts, selectedPromptId]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -51,33 +81,47 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
+      const systemPrompt = selectedPrompt?.content;
 
-      const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
-        content: `I understand you want to: "${inputValue}". This is a demo response. The AI chat functionality would be implemented here with your preferred AI service.`,
-        isUser: false,
-        timestamp: new Date(),
-        mode: 'canvas',
-        artifact: Math.random() > 0.7 ? {
-          type: 'react',
-          code: `import React from 'react';\n\nconst ExampleComponent = () => {\n  return (\n    <div className="p-4 bg-blue-100 rounded-lg">\n      <h2 className="text-xl font-bold mb-2">Generated Component</h2>\n      <p>This is an example artifact generated from your request.</p>\n    </div>\n  );\n};\n\nexport default ExampleComponent;`,
-          title: 'Example Component'
-        } : undefined,
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
+      const result = await sendMessage.mutateAsync({
+        message: inputValue,
+        conversationId,
+        modelId: selectedModelId,
+        systemPrompt,
+        parameters,
       });
-    } finally {
-      setIsLoading(false);
+
+      if (result.success) {
+        // Update conversation ID if this is a new conversation
+        if (!conversationId && result.conversationId) {
+          setConversationId(result.conversationId);
+        }
+
+        const aiMessage: Message = {
+          id: `ai-${Date.now()}`,
+          content: result.message,
+          isUser: false,
+          timestamp: new Date(),
+          mode: 'openai',
+          model: selectedModelId,
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+
+        // Show usage info
+        if (result.usage) {
+          toast({
+            title: "Message sent",
+            description: `Tokens used: ${result.usage.tokens}, Cost: $${result.usage.cost.toFixed(6)}`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Error handling is done in the useAI hook
     }
   };
 
@@ -109,6 +153,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <AISettings
+                models={models || []}
+                prompts={prompts || []}
+                selectedModelId={selectedModelId}
+                selectedPromptId={selectedPromptId}
+                parameters={parameters}
+                onModelChange={setSelectedModelId}
+                onPromptChange={setSelectedPromptId}
+                onParametersChange={setParameters}
+                disabled={isLoading || modelsLoading || promptsLoading}
+              />
               {onShowSettings && (
                 <Button
                   variant="ghost"
@@ -116,7 +171,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
                   onClick={onShowSettings}
                   className="text-white hover:bg-white/10"
                 >
-                  <Settings className="w-4 h-4" />
+                  <User className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -127,7 +182,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
           {messages.length === 0 ? (
             <div className="text-center text-white/60 mt-12">
               <h2 className="text-xl mb-2">Welcome to AI Chat Assistant</h2>
-              <p>Start a conversation by typing a message below.</p>
+              <p>Start a conversation with OpenAI by typing a message below.</p>
+              {modelsLoading && <p className="mt-2">Loading AI models...</p>}
             </div>
           ) : (
             messages.map((message) => (
@@ -161,7 +217,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message here..."
                 className="min-h-[60px] max-h-32 resize-none bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-20"
-                disabled={isLoading}
+                disabled={isLoading || modelsLoading || promptsLoading}
               />
               <div className="absolute right-2 bottom-2 flex space-x-1">
                 <Button
@@ -176,7 +232,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onShowSettings }) => {
             </div>
             <Button
               onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isLoading || modelsLoading || promptsLoading || !selectedModelId}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white h-[60px] px-6"
             >
               <Send className="w-4 h-4" />

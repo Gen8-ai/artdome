@@ -9,6 +9,255 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_models: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          input_cost_per_token: number
+          is_active: boolean
+          max_tokens: number
+          name: string
+          output_cost_per_token: number
+          provider: string
+          supports_streaming: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          input_cost_per_token?: number
+          is_active?: boolean
+          max_tokens?: number
+          name: string
+          output_cost_per_token?: number
+          provider?: string
+          supports_streaming?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          input_cost_per_token?: number
+          is_active?: boolean
+          max_tokens?: number
+          name?: string
+          output_cost_per_token?: number
+          provider?: string
+          supports_streaming?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_parameters: {
+        Row: {
+          created_at: string
+          frequency_penalty: number | null
+          id: string
+          max_tokens: number | null
+          model_id: string
+          presence_penalty: number | null
+          temperature: number | null
+          top_p: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          frequency_penalty?: number | null
+          id?: string
+          max_tokens?: number | null
+          model_id: string
+          presence_penalty?: number | null
+          temperature?: number | null
+          top_p?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          frequency_penalty?: number | null
+          id?: string
+          max_tokens?: number | null
+          model_id?: string
+          presence_penalty?: number | null
+          temperature?: number | null
+          top_p?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_parameters_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          is_system: boolean | null
+          name: string
+          updated_at: string
+          user_id: string | null
+          variables: Json | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          is_system?: boolean | null
+          name: string
+          updated_at?: string
+          user_id?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
+      ai_usage_analytics: {
+        Row: {
+          cost: number
+          created_at: string
+          date: string
+          id: string
+          model_name: string
+          request_type: string | null
+          tokens_used: number
+          user_id: string
+        }
+        Insert: {
+          cost: number
+          created_at?: string
+          date?: string
+          id?: string
+          model_name: string
+          request_type?: string | null
+          tokens_used: number
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          model_name?: string
+          request_type?: string | null
+          tokens_used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          model_id: string | null
+          title: string | null
+          total_cost: number | null
+          total_tokens: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_id?: string | null
+          title?: string | null
+          total_cost?: number | null
+          total_tokens?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_id?: string | null
+          title?: string | null
+          total_cost?: number | null
+          total_tokens?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          cost: number | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          model_used: string | null
+          role: string
+          tokens_used: number | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          role: string
+          tokens_used?: number | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          model_used?: string | null
+          role?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

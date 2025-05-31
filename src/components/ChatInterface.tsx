@@ -1,44 +1,29 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import ChatMessage from './ChatMessage';
-import ArtifactPreview from './ArtifactPreview';
-import PreferencesPanel from './PreferencesPanel';
-import InputControls from './InputControls';
+import { Send, Sparkles, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
+import ChatMessage from './ChatMessage';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
+  role: 'user' | 'assistant';
   content: string;
-  isUser: boolean;
   timestamp: Date;
-  artifact?: any;
-  mode?: string;
-  model?: string;
 }
 
-const ChatInterface: React.FC = () => {
+const ChatInterface = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedArtifact, setSelectedArtifact] = useState<any>(null);
-  const [conversationId, setConversationId] = useState<string>();
-  const [selectedModelId, setSelectedModelId] = useState<string>();
-  const [selectedPromptId, setSelectedPromptId] = useState<string>();
-  const [parameters, setParameters] = useState({
-    temperature: 0.7,
-    max_tokens: 1000,
-    top_p: 1.0,
-    frequency_penalty: 0.0,
-    presence_penalty: 0.0,
-  });
-  
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const { models, prompts, modelsLoading, promptsLoading, sendMessage, isLoading } = useAI();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { selectedModelId, selectedPromptId, parameters } = useAI();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,234 +33,121 @@ const ChatInterface: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Set default model when models load
-  useEffect(() => {
-    if (models && models.length > 0 && !selectedModelId) {
-      setSelectedModelId(models[0].id);
-    }
-  }, [models, selectedModelId]);
-
-  // Set default prompt when prompts load
-  useEffect(() => {
-    if (prompts && prompts.length > 0 && !selectedPromptId) {
-      const defaultPrompt = prompts.find(p => p.name === 'Default Assistant');
-      if (defaultPrompt) {
-        setSelectedPromptId(defaultPrompt.id);
-      }
-    }
-  }, [prompts, selectedPromptId]);
-
-  const handleSendMessage = async () => {
+  const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      content: inputValue,
-      isUser: true,
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputValue.trim(),
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+    setIsLoading(true);
 
     try {
-      const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
-      const systemPrompt = selectedPrompt?.content;
-
-      const result = await sendMessage.mutateAsync({
-        message: inputValue,
-        conversationId,
-        modelId: selectedModelId,
-        systemPrompt,
-        parameters,
+      const { data, error } = await supabase.functions.invoke('openai-chat', {
+        body: {
+          messages: [...messages, userMessage].map(msg => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          model: selectedModelId || 'gpt-4o-mini',
+          ...parameters,
+        },
       });
 
-      if (result.success) {
-        // Update conversation ID if this is a new conversation
-        if (!conversationId && result.conversationId) {
-          setConversationId(result.conversationId);
-        }
+      if (error) throw error;
 
-        const aiMessage: Message = {
-          id: `ai-${Date.now()}`,
-          content: result.message,
-          isUser: false,
-          timestamp: new Date(),
-          mode: 'openai',
-          model: selectedModelId,
-        };
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.choices[0].message.content,
+        timestamp: new Date(),
+      };
 
-        setMessages(prev => [...prev, aiMessage]);
-
-        // Show usage info
-        if (result.usage) {
-          toast({
-            title: "Message sent",
-            description: `Tokens used: ${result.usage.tokens}, Cost: $${result.usage.cost.toFixed(6)}`,
-          });
-        }
-      }
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      sendMessage();
     }
   };
 
-  const handleArtifactClick = (artifact: any) => {
-    setSelectedArtifact(artifact);
-  };
-
-  const closeArtifact = () => {
-    setSelectedArtifact(null);
-  };
-
   return (
-    <div className="flex h-full bg-background">
-      {/* Main Chat Container */}
-      <div className={`flex flex-col transition-all duration-300 ease-in-out ${
-        selectedArtifact ? 'w-1/2' : 'w-full'
-      }`}>
-        
-        {/* Header */}
-        <div className="flex-shrink-0 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-semibold text-sm">AI</span>
+    <div className="flex flex-col h-full bg-background">
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
               </div>
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">AI Assistant</h1>
-                <p className="text-sm text-muted-foreground">Powered by advanced AI models</p>
-              </div>
+              <h2 className="text-2xl font-semibold mb-2">Welcome to AI Assistant</h2>
+              <p className="text-muted-foreground max-w-md">
+                Start a conversation by typing a message below. I'm here to help with any questions or tasks you might have.
+              </p>
             </div>
-            <PreferencesPanel
-              models={models || []}
-              prompts={prompts || []}
-              selectedModelId={selectedModelId}
-              selectedPromptId={selectedPromptId}
-              parameters={parameters}
-              onModelChange={setSelectedModelId}
-              onPromptChange={setSelectedPromptId}
-              onParametersChange={setParameters}
-              disabled={isLoading || modelsLoading || promptsLoading}
-            />
-          </div>
-        </div>
-
-        {/* Messages Container */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin">
-            {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="max-w-md text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-bold text-xl">AI</span>
-                  </div>
-                  <h2 className="text-2xl font-semibold text-foreground">
-                    Welcome to AI Assistant
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Start a conversation by typing a message below. I'm here to help with any questions or tasks you have.
-                  </p>
-                  {modelsLoading && (
-                    <div className="flex items-center justify-center space-x-2 mt-4">
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                      <span className="text-sm text-muted-foreground ml-2">Loading AI models...</span>
-                    </div>
-                  )}
+          ) : (
+            <div className="space-y-6">
+              {messages.map((message) => (
+                <ChatMessage key={message.id} message={message} />
+              ))}
+              {isLoading && (
+                <div className="flex items-center space-x-2 text-muted-foreground">
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                  <span className="text-sm">AI is thinking...</span>
                 </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    onArtifactClick={() => message.artifact && handleArtifactClick(message.artifact)}
-                  />
-                ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] bg-muted/50 border border-border rounded-2xl p-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                        <span className="text-sm text-muted-foreground ml-2">AI is thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Input Container */}
-        <div className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="px-6 py-4 space-y-3">
-            {/* Controls */}
-            <InputControls
-              models={models || []}
-              prompts={prompts || []}
-              selectedModelId={selectedModelId}
-              selectedPromptId={selectedPromptId}
-              onModelChange={setSelectedModelId}
-              onPromptChange={setSelectedPromptId}
-              disabled={isLoading || modelsLoading || promptsLoading}
-            />
-            
-            {/* Input Area */}
-            <div className="flex items-end space-x-3">
-              <div className="flex-1 relative">
-                <Textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
-                  className="min-h-[56px] max-h-32 resize-none pr-12 bg-background border-border focus:border-primary transition-colors"
-                  disabled={isLoading || modelsLoading || promptsLoading}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-2 bottom-2 h-8 w-8 p-0 hover:bg-muted"
-                  disabled={isLoading}
-                >
-                  <Paperclip className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || modelsLoading || promptsLoading || !selectedModelId}
-                className="h-14 px-6 bg-primary hover:bg-primary/90 transition-colors"
-                size="lg"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
+              )}
             </div>
-          </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Artifact Preview */}
-      {selectedArtifact && (
-        <div className="w-1/2 border-l border-border">
-          <ArtifactPreview
-            artifact={selectedArtifact}
-            onClose={closeArtifact}
-          />
+      {/* Input Area */}
+      <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto p-4">
+          <div className="relative">
+            <Textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Type your message here..."
+              className="min-h-[60px] max-h-[200px] resize-none pr-12 border-border/50"
+              disabled={isLoading}
+            />
+            <Button
+              onClick={sendMessage}
+              disabled={!inputValue.trim() || isLoading}
+              size="sm"
+              className="absolute right-2 bottom-2 h-8 w-8 p-0"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

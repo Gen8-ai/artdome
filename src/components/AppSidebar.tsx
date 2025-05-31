@@ -27,8 +27,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useAI } from '@/hooks/useAI';
+import PreferencesPanel from './PreferencesPanel';
 import { 
   ChevronDown, 
   User, 
@@ -38,7 +41,8 @@ import {
   Folder,
   Settings,
   Moon,
-  Sun
+  Sun,
+  Bot
 } from 'lucide-react';
 
 interface Project {
@@ -72,6 +76,17 @@ const AppSidebar = () => {
       ],
     },
   ]);
+
+  const {
+    models,
+    prompts,
+    selectedModelId,
+    selectedPromptId,
+    parameters,
+    setSelectedModelId,
+    setSelectedPromptId,
+    setParameters,
+  } = useAI();
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -116,7 +131,7 @@ const AppSidebar = () => {
   return (
     <Sidebar className="border-r border-border/50">
       <SidebarHeader className="p-4 border-b border-border/50">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">AI Assistant</h2>
           <Button
             variant="ghost"
@@ -126,6 +141,42 @@ const AppSidebar = () => {
           >
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2">
+            <Bot className="w-4 h-4 text-muted-foreground" />
+            <Select
+              value={selectedModelId}
+              onValueChange={setSelectedModelId}
+            >
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {models?.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-xs">{model.display_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {model.max_tokens.toLocaleString()} tokens
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <PreferencesPanel
+              models={models || []}
+              prompts={prompts || []}
+              selectedModelId={selectedModelId}
+              selectedPromptId={selectedPromptId}
+              parameters={parameters}
+              onModelChange={setSelectedModelId}
+              onPromptChange={setSelectedPromptId}
+              onParametersChange={setParameters}
+            />
+          </div>
         </div>
       </SidebarHeader>
 

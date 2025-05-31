@@ -24,38 +24,28 @@ import { useAuth } from '@/contexts/AuthContext';
 import ConversationList from './ConversationList';
 import SettingsPage from './auth/SettingsPage';
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  onShowSettings?: (tab: string) => void;
+}
+
+const AppSidebar: React.FC<AppSidebarProps> = ({ onShowSettings }) => {
   const { user, signOut } = useAuth();
-  const [showSettings, setShowSettings] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState('profile');
 
   const handleSignOut = async () => {
     await signOut();
   };
 
   const handleProfileClick = () => {
-    setActiveSettingsTab('profile');
-    setShowSettings(true);
+    onShowSettings?.('profile');
   };
 
   const handleAIPreferencesClick = () => {
-    setActiveSettingsTab('ai-preferences');
-    setShowSettings(true);
+    onShowSettings?.('ai-preferences');
   };
 
   const handleAppSettingsClick = () => {
-    setActiveSettingsTab('app-preferences');
-    setShowSettings(true);
+    onShowSettings?.('app-preferences');
   };
-
-  const handleBackToChat = () => {
-    setShowSettings(false);
-  };
-
-  // Show settings page if settings is active
-  if (showSettings) {
-    return <SettingsPage onBack={handleBackToChat} />;
-  }
 
   return (
     <Sidebar>

@@ -12,12 +12,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SettingsPageProps {
   onBack: () => void;
+  activeTab?: string;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, activeTab = 'profile' }) => {
   const { signOut } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [currentTab, setCurrentTab] = useState(activeTab);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -59,7 +60,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
             </Button>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-3 bg-muted">
               <TabsTrigger value="profile" className="data-[state=active]:bg-background">
                 <User className="h-4 w-4 mr-2" />

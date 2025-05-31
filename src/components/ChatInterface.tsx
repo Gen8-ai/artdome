@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Sparkles, MessageSquare, Bot, Code2, BookOpen, Search } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 import ChatMessage from './ChatMessage';
@@ -44,19 +44,16 @@ const ChatInterface = () => {
     {
       id: 'code',
       label: 'Code Prompt',
-      icon: Code2,
       category: 'interact'
     },
     {
       id: 'creative',
       label: 'Creative Writing',
-      icon: BookOpen,
       category: 'story'
     },
     {
       id: 'research',
       label: 'Research',
-      icon: Search,
       category: 'search'
     }
   ];
@@ -131,41 +128,6 @@ const ChatInterface = () => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* System Prompt Buttons */}
-      <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm p-4">
-        <div className="max-w-4xl mx-auto">
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">System Prompts</h3>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={!selectedPromptId ? "default" : "outline"}
-              onClick={handleGeneralPrompt}
-              className="h-auto p-3 flex-shrink-0"
-            >
-              <Bot className="w-4 h-4 mr-2" />
-              <span>General</span>
-            </Button>
-            
-            {promptButtons.map((button) => {
-              const isSelected = prompts?.find(p => p.category === button.category)?.id === selectedPromptId;
-              const IconComponent = button.icon;
-              
-              return (
-                <Button
-                  key={button.id}
-                  variant={isSelected ? "default" : "outline"}
-                  onClick={() => handlePromptSelect(button.category)}
-                  className="h-auto p-3 flex-shrink-0"
-                  disabled={promptsLoading}
-                >
-                  <IconComponent className="w-4 h-4 mr-2" />
-                  <span>{button.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-6">
@@ -201,24 +163,46 @@ const ChatInterface = () => {
       {/* Input Area */}
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto p-4">
-          <div className="relative">
-            <Textarea
-              ref={textareaRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your message here..."
-              className="min-h-[60px] max-h-[200px] resize-none pr-12 border-border/50"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!inputValue.trim() || isLoading}
-              size="sm"
-              className="absolute right-2 bottom-2 h-8 w-8 p-0"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+          <div className="space-y-3">
+            {/* System Prompt Buttons */}
+            <div className="flex flex-wrap gap-1">
+              {promptButtons.map((button) => {
+                const isSelected = prompts?.find(p => p.category === button.category)?.id === selectedPromptId;
+                
+                return (
+                  <Button
+                    key={button.id}
+                    variant={isSelected ? "default" : "outline"}
+                    onClick={() => handlePromptSelect(button.category)}
+                    className="h-6 px-2 text-xs"
+                    disabled={promptsLoading}
+                  >
+                    {button.label}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            {/* Input Container */}
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type your message here..."
+                className="min-h-[60px] max-h-[200px] resize-none pr-12 border-border/50"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={sendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                size="sm"
+                className="absolute right-2 bottom-2 h-8 w-8 p-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -53,22 +53,27 @@ const handler = async (req: Request): Promise<Response> => {
         dependencies.push('tailwindcss');
       }
       
-      // Create the final compiled code structure
+      // Create the final compiled code structure with proper global assignments
       compiledCode = `
-        // Global React setup
         ${transformedImports}
         
-        // Tailwind CSS utilities (if needed)
-        ${options.includeTailwind ? generateTailwindUtilities() : ''}
-        
-        // Lucide React icons setup (if needed)
-        ${options.includeLucideIcons ? generateLucideSetup() : ''}
-        
-        // shadcn/ui components setup (if needed)
-        ${options.includeShadcnUI ? generateShadcnSetup() : ''}
-        
-        // Component code
         ${cleanCode}
+        
+        // Auto-export component for rendering
+        if (typeof App !== 'undefined') {
+          window.App = App;
+        } else if (typeof Component !== 'undefined') {
+          window.Component = Component;
+        } else {
+          // Try to find and export any React component
+          const componentMatch = \`${cleanCode}\`.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
+          if (componentMatch) {
+            const componentName = componentMatch[1];
+            if (typeof eval(componentName) === 'function') {
+              window[componentName] = eval(componentName);
+            }
+          }
+        }
       `;
       
       console.log('React code compiled successfully');
@@ -148,7 +153,7 @@ function transformImportsToGlobals(imports: string[]): string {
     // Handle React default import
     const reactDefaultMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react['"]/);
     if (reactDefaultMatch && reactDefaultMatch[1] !== 'React') {
-      transformations.push(`const ${reactDefaultMatch[1]} = React;`);
+      transformations.push(`const ${reactDefaultMatch[1]} = window.React;`);
     }
     
     // Handle React named imports
@@ -158,14 +163,14 @@ function transformImportsToGlobals(imports: string[]): string {
       namedImports.forEach(namedImport => {
         const [importName, alias] = namedImport.split(' as ').map(s => s.trim());
         const finalName = alias || importName;
-        transformations.push(`const ${finalName} = React.${importName};`);
+        transformations.push(`const ${finalName} = window.React.${importName};`);
       });
     }
     
     // Handle ReactDOM imports
     const reactDOMMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react-dom['"]/);
     if (reactDOMMatch && reactDOMMatch[1] !== 'ReactDOM') {
-      transformations.push(`const ${reactDOMMatch[1]} = ReactDOM;`);
+      transformations.push(`const ${reactDOMMatch[1]} = window.ReactDOM;`);
     }
 
     // Handle Lucide React imports
@@ -175,7 +180,7 @@ function transformImportsToGlobals(imports: string[]): string {
       lucideImports.forEach(iconImport => {
         const [iconName, alias] = iconImport.split(' as ').map(s => s.trim());
         const finalName = alias || iconName;
-        transformations.push(`const ${finalName} = LucideReact.${iconName};`);
+        transformations.push(`const ${finalName} = window.LucideReact?.${iconName} || function() { return React.createElement('div', {}, '${iconName}'); };`);
       });
     }
 
@@ -187,7 +192,7 @@ function transformImportsToGlobals(imports: string[]): string {
       componentImports.forEach(compImport => {
         const [compName, alias] = compImport.split(' as ').map(s => s.trim());
         const finalName = alias || compName;
-        transformations.push(`const ${finalName} = ShadcnUI.${compName};`);
+        transformations.push(`const ${finalName} = window.ShadcnUI?.${compName} || function() { return React.createElement('div', {}, '${compName}'); };`);
       });
     }
   });
@@ -230,104 +235,6 @@ body {
   margin: 0;
   line-height: inherit;
 }
-  `;
-}
-
-function generateTailwindUtilities(): string {
-  return `
-// Tailwind utility functions available globally
-window.cn = function(...classes) {
-  return classes.filter(Boolean).join(' ');
-};
-  `;
-}
-
-function generateLucideSetup(): string {
-  return `
-// Lucide React icons setup
-window.LucideReact = {
-  // Common icons
-  Home: function(props) {
-    return React.createElement('svg', {
-      ...props,
-      xmlns: 'http://www.w3.org/2000/svg',
-      width: props.size || 24,
-      height: props.size || 24,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: props.color || 'currentColor',
-      strokeWidth: props.strokeWidth || 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round'
-    }, React.createElement('path', { d: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }), React.createElement('polyline', { points: '9,22 9,12 15,12 15,22' }));
-  },
-  Search: function(props) {
-    return React.createElement('svg', {
-      ...props,
-      xmlns: 'http://www.w3.org/2000/svg',
-      width: props.size || 24,
-      height: props.size || 24,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: props.color || 'currentColor',
-      strokeWidth: props.strokeWidth || 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round'
-    }, React.createElement('circle', { cx: '11', cy: '11', r: '8' }), React.createElement('path', { d: 'm21 21-4.35-4.35' }));
-  },
-  Menu: function(props) {
-    return React.createElement('svg', {
-      ...props,
-      xmlns: 'http://www.w3.org/2000/svg',
-      width: props.size || 24,
-      height: props.size || 24,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: props.color || 'currentColor',
-      strokeWidth: props.strokeWidth || 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round'
-    }, React.createElement('line', { x1: '4', x2: '20', y1: '12', y2: '12' }), React.createElement('line', { x1: '4', x2: '20', y1: '6', y2: '6' }), React.createElement('line', { x1: '4', x2: '20', y1: '18', y2: '18' }));
-  }
-};
-  `;
-}
-
-function generateShadcnSetup(): string {
-  return `
-// shadcn/ui components setup
-window.ShadcnUI = {
-  Button: function({ children, className = '', variant = 'default', size = 'default', ...props }) {
-    const baseClasses = 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
-    const variantClasses = {
-      default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-      destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-      outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-      secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-      ghost: 'hover:bg-accent hover:text-accent-foreground',
-      link: 'text-primary underline-offset-4 hover:underline'
-    };
-    const sizeClasses = {
-      default: 'h-10 px-4 py-2',
-      sm: 'h-9 rounded-md px-3',
-      lg: 'h-11 rounded-md px-8',
-      icon: 'h-10 w-10'
-    };
-    
-    return React.createElement('button', {
-      className: \`\${baseClasses} \${variantClasses[variant]} \${sizeClasses[size]} \${className}\`,
-      ...props
-    }, children);
-  },
-  
-  Input: function({ className = '', type = 'text', ...props }) {
-    return React.createElement('input', {
-      type,
-      className: \`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 \${className}\`,
-      ...props
-    });
-  }
-};
   `;
 }
 

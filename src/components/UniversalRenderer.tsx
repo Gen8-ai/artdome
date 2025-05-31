@@ -109,7 +109,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
     <iframe
       ref={iframeRef}
       className="w-full h-full border-0"
-      sandbox="allow-scripts allow-same-origin allow-forms"
+      sandbox="allow-scripts allow-forms"
       title={`${block.type} content preview`}
     />
   );

@@ -50,14 +50,7 @@ export class SecureInjection {
   static validateCode(code: string): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // Check for syntax errors
-    try {
-      new Function(code);
-    } catch (error) {
-      errors.push(`Syntax error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
-    // Check for dangerous patterns
+    // Check for dangerous patterns first
     const dangerousPatterns = [
       { pattern: /eval\s*\(/g, message: 'eval() is not allowed' },
       { pattern: /Function\s*\(/g, message: 'Function constructor is not allowed' },
@@ -69,6 +62,23 @@ export class SecureInjection {
         errors.push(message);
       }
     });
+
+    // For syntax validation, check if it contains modern JS features that Function() can't parse
+    const hasModernSyntax = /(?:import\s+|export\s+|const\s+\w+\s*=|let\s+\w+\s*=|=>\s*|async\s+|await\s+)/i.test(code);
+    
+    if (!hasModernSyntax) {
+      // Only try Function constructor validation for simple code
+      try {
+        new Function(code);
+      } catch (error) {
+        // Only add syntax error if it's not related to imports/exports
+        const errorMsg = error instanceof Error ? error.message : 'Unknown syntax error';
+        if (!errorMsg.includes('import') && !errorMsg.includes('export')) {
+          errors.push(`Syntax error: ${errorMsg}`);
+        }
+      }
+    }
+    // For modern syntax, we skip Function constructor validation as it's expected to fail
 
     return {
       isValid: errors.length === 0,

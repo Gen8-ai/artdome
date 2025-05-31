@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Key, Brain, Zap } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -60,9 +60,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         {step === 1 && (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <Brain className="w-10 h-10 text-white" />
-              </div>
               <h3 className="text-xl font-bold mb-2">Choose Your AI Model</h3>
               <p className="text-white/70">Select your preferred AI model for the best experience</p>
             </div>
@@ -105,9 +102,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         {step === 2 && (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                <Key className="w-10 h-10 text-white" />
-              </div>
               <h3 className="text-xl font-bold mb-2">API Keys Setup</h3>
               <p className="text-white/70">Add your API keys to start using AI models</p>
             </div>
@@ -164,9 +158,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         {step === 3 && (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                <Zap className="w-10 h-10 text-white" />
-              </div>
               <h3 className="text-xl font-bold mb-2">Default Mode</h3>
               <p className="text-white/70">Choose your preferred AI interaction mode</p>
             </div>

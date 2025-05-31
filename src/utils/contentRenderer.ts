@@ -168,9 +168,9 @@ export class ContentRenderer {
     } = options;
 
     try {
-      // Check if we should use E2B for this content
+      // Check if we should use serverside E2B for this content
       if (e2bIntegration.shouldUseE2B(block)) {
-        console.log('Using E2B execution for content type:', block.type);
+        console.log('Using serverside E2B execution for content type:', block.type);
         const e2bResult = await e2bIntegration.renderWithE2B(block, {
           timeout: 30000,
           enableFileSystem: true
@@ -291,7 +291,7 @@ export class ContentRenderer {
     const block: ContentBlock = {
       type: 'artifact',
       code,
-      title: `${language || 'Code'} Execution`
+      title: `${language || 'Code'} Execution (Serverside)`
     };
 
     return await e2bIntegration.renderWithE2B(block, {

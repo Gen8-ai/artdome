@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AIService } from '@/services/ai/aiService';
 
@@ -77,7 +78,7 @@ export class ErrorBoundaryManager {
       // Convert error to string for reporting
       const errorMessage = typeof event.reason === 'string' 
         ? event.reason 
-        : event.reason?.message || String(event.reason);
+        : (event.reason?.message || String(event.reason));
       
       this.reportError(errorMessage);
       event.preventDefault();

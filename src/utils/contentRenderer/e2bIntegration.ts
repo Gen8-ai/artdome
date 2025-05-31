@@ -1,5 +1,4 @@
-
-import { e2bExecutor, ExecutionResult, ExecutionOptions } from './e2bExecutor';
+import { e2bService, ExecutionResult, ExecutionRequest } from '@/services/e2bService';
 import { ContentBlock } from './types';
 import { detectLanguage, supportedLanguages } from './e2bConfig';
 
@@ -31,13 +30,14 @@ export class E2BIntegration {
 
   async renderWithE2B(
     block: ContentBlock,
-    options: ExecutionOptions = {}
+    options: Partial<ExecutionRequest> = {}
   ): Promise<E2BRenderResult> {
     try {
-      console.log('Rendering with E2B executor...');
+      console.log('Rendering with serverside E2B executor...');
 
-      // Execute code using E2B
-      const executionResult = await e2bExecutor.executeCode(block.code, {
+      // Execute code using serverside E2B service
+      const executionResult = await e2bService.executeCode({
+        code: block.code,
         language: detectLanguage(block.code),
         timeout: 30000,
         enableFileSystem: true,
@@ -54,7 +54,7 @@ export class E2BIntegration {
       };
 
     } catch (error) {
-      console.error('E2B execution failed:', error);
+      console.error('Serverside E2B execution failed:', error);
       
       // Fallback to error display
       const errorResult: ExecutionResult = {
@@ -62,7 +62,60 @@ export class E2BIntegration {
         output: '',
         error: error instanceof Error ? error.message : String(error),
         executionTime: 0,
-        logs: [`E2B execution failed: ${error}`]
+        logs: [`Serverside E2B execution failed: ${error}`]
+      };
+
+      return {
+        html: this.createExecutionHTML(block, errorResult),
+        executionResult: errorResult,
+        useIframe: false
+      };
+    }
+  }
+
+  async renderMultiFileProject(
+    files: { [filename: string]: string },
+    entryPoint: string,
+    title?: string
+  ): Promise<E2BRenderResult> {
+    try {
+      console.log('Rendering multi-file project with serverside E2B...');
+
+      const executionResult = await e2bService.executeMultiFileProject(
+        files,
+        entryPoint,
+        'python' // Default to Python, can be made configurable
+      );
+
+      const block: ContentBlock = {
+        type: 'artifact',
+        code: `Multi-file project with entry point: ${entryPoint}`,
+        title: title || 'Multi-File Project'
+      };
+
+      const html = this.createExecutionHTML(block, executionResult);
+
+      return {
+        html,
+        executionResult,
+        useIframe: false
+      };
+
+    } catch (error) {
+      console.error('Serverside multi-file project execution failed:', error);
+      
+      const errorResult: ExecutionResult = {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : String(error),
+        executionTime: 0,
+        logs: [`Serverside multi-file execution failed: ${error}`]
+      };
+
+      const block: ContentBlock = {
+        type: 'artifact',
+        code: 'Multi-file project execution failed',
+        title: title || 'Multi-File Project'
       };
 
       return {
@@ -192,6 +245,15 @@ export class E2BIntegration {
       color: #6b7280;
       padding: 40px;
     }
+    .serverside-badge {
+      background: #10b981;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
   </style>
 </head>
 <body>
@@ -200,6 +262,7 @@ export class E2BIntegration {
       <h1>${block.title || 'Code Execution Result'}</h1>
       <div>
         <span class="status">${statusText}</span>
+        <span class="serverside-badge">Serverside E2B</span>
         <span class="execution-time">Executed in ${executionTime}ms</span>
       </div>
     </div>
@@ -268,61 +331,9 @@ export class E2BIntegration {
     return div.innerHTML;
   }
 
-  async renderMultiFileProject(
-    files: { [filename: string]: string },
-    entryPoint: string,
-    title?: string
-  ): Promise<E2BRenderResult> {
-    try {
-      console.log('Rendering multi-file project with E2B...');
-
-      const executionResult = await e2bExecutor.executeMultiFileProject(
-        files,
-        entryPoint,
-        { enableFileSystem: true, timeout: 60000 }
-      );
-
-      const block: ContentBlock = {
-        type: 'artifact',
-        code: `Multi-file project with entry point: ${entryPoint}`,
-        title: title || 'Multi-File Project'
-      };
-
-      const html = this.createExecutionHTML(block, executionResult);
-
-      return {
-        html,
-        executionResult,
-        useIframe: false
-      };
-
-    } catch (error) {
-      console.error('Multi-file project execution failed:', error);
-      
-      const errorResult: ExecutionResult = {
-        success: false,
-        output: '',
-        error: error instanceof Error ? error.message : String(error),
-        executionTime: 0,
-        logs: [`Multi-file execution failed: ${error}`]
-      };
-
-      const block: ContentBlock = {
-        type: 'artifact',
-        code: 'Multi-file project execution failed',
-        title: title || 'Multi-File Project'
-      };
-
-      return {
-        html: this.createExecutionHTML(block, errorResult),
-        executionResult: errorResult,
-        useIframe: false
-      };
-    }
-  }
-
   cleanup(): void {
-    e2bExecutor.closeAllSessions();
+    // No client-side cleanup needed for serverside execution
+    console.log('E2B serverside integration cleanup complete');
   }
 }
 

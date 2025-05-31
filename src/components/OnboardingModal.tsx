@@ -36,10 +36,10 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px] bg-gradient-to-br from-purple-900/90 via-blue-900/90 to-indigo-900/90 backdrop-blur-xl border border-white/20 text-white">
+      <DialogContent className="sm:max-w-[600px] bg-gradient-to-br from-background to-muted backdrop-blur-xl border border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2 text-2xl">
-            <Sparkles className="w-6 h-6 text-purple-300" />
+            <Sparkles className="w-6 h-6 text-primary" />
             <span>Welcome to AI Canvas</span>
           </DialogTitle>
         </DialogHeader>
@@ -47,7 +47,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         <div className="space-y-6">
           <div className="text-center">
             <h3 className="text-xl font-bold mb-2">Choose Your AI Model</h3>
-            <p className="text-white/70">Select your preferred AI model to get started</p>
+            <p className="text-muted-foreground">Select your preferred AI model to get started</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
@@ -59,17 +59,17 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
             ].map((model) => (
               <Card
                 key={model.id}
-                className="cursor-pointer transition-all duration-200 bg-white/10 border-white/20 hover:bg-gradient-to-r hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400"
+                className="cursor-pointer transition-all duration-200 hover:bg-accent hover:border-primary"
                 onClick={() => handleModelSelection(model.id)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-white text-lg">{model.name}</CardTitle>
-                    <span className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded">
+                    <CardTitle className="text-lg">{model.name}</CardTitle>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                       {model.provider}
                     </span>
                   </div>
-                  <CardDescription className="text-white/70">{model.description}</CardDescription>
+                  <CardDescription>{model.description}</CardDescription>
                 </CardHeader>
               </Card>
             ))}

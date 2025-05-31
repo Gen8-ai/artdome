@@ -6,11 +6,15 @@ export interface CompilationResult {
   sourceMap?: string;
   error?: string;
   dependencies?: string[];
+  cssCode?: string;
 }
 
 export interface CompilationOptions {
   includeSourceMap?: boolean;
   minify?: boolean;
+  includeTailwind?: boolean;
+  includeLucideIcons?: boolean;
+  includeShadcnUI?: boolean;
 }
 
 export class CodeCompiler {
@@ -45,7 +49,12 @@ export class CodeCompiler {
         body: {
           code,
           type,
-          options
+          options: {
+            ...options,
+            includeTailwind: true,
+            includeLucideIcons: true,
+            includeShadcnUI: true
+          }
         }
       });
 

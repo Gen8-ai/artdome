@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/hooks/useTheme';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { supabase } from '@/integrations/supabase/client';
 import { Settings, Trash2, Bell } from 'lucide-react';
 
@@ -38,7 +39,7 @@ const AppPreferences = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { theme, applyTheme } = useTheme();
-  const [loading, setLoading] = useState(false);
+  const { preferences: dbPreferences, isLoading, updatePreferences } = useUserPreferences();
   const [clearingChats, setClearingChats] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: theme,
@@ -48,62 +49,31 @@ const AppPreferences = () => {
     auto_save: true,
   });
 
+  // Update local preferences when database preferences are loaded
   useEffect(() => {
-    if (user) {
-      fetchPreferences();
-    }
-  }, [user]);
-
-  const fetchPreferences = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      if (data) {
-        setPreferences({
-          theme: data.theme as 'light' | 'dark' | 'system',
-          language: data.language,
-          notifications_enabled: data.notifications_enabled,
-          email_notifications: data.email_notifications,
-          auto_save: data.auto_save,
-        });
-        // Don't automatically apply theme here - only when user saves
-      }
-    } catch (error) {
-      console.error('Error fetching preferences:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load preferences',
-        variant: 'destructive',
+    if (dbPreferences) {
+      setPreferences({
+        theme: (dbPreferences.theme as 'light' | 'dark' | 'system') || theme,
+        language: dbPreferences.language || 'en',
+        notifications_enabled: dbPreferences.notifications_enabled ?? true,
+        email_notifications: dbPreferences.email_notifications ?? true,
+        auto_save: dbPreferences.auto_save ?? true,
       });
     }
-  };
+  }, [dbPreferences, theme]);
 
-  const updatePreferences = async () => {
+  const handleSavePreferences = async () => {
     if (!user) return;
     
-    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          theme: preferences.theme,
-          language: preferences.language,
-          notifications_enabled: preferences.notifications_enabled,
-          email_notifications: preferences.email_notifications,
-          auto_save: preferences.auto_save,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
+      // Use the useUserPreferences hook to update preferences
+      await updatePreferences.mutateAsync({
+        theme: preferences.theme,
+        language: preferences.language,
+        notifications_enabled: preferences.notifications_enabled,
+        email_notifications: preferences.email_notifications,
+        auto_save: preferences.auto_save,
+      });
 
       // Only apply theme when user explicitly saves preferences
       applyTheme(preferences.theme);
@@ -114,11 +84,6 @@ const AppPreferences = () => {
           await Notification.requestPermission();
         }
       }
-
-      toast({
-        title: 'Success',
-        description: 'Preferences updated successfully',
-      });
     } catch (error) {
       console.error('Error updating preferences:', error);
       toast({
@@ -126,8 +91,6 @@ const AppPreferences = () => {
         description: 'Failed to update preferences',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -192,6 +155,18 @@ const AppPreferences = () => {
       });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <div className="text-center">Loading preferences...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -327,11 +302,11 @@ const AppPreferences = () => {
 
           {/* Save Button */}
           <Button
-            onClick={updatePreferences}
-            disabled={loading}
+            onClick={handleSavePreferences}
+            disabled={updatePreferences.isPending}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            {loading ? 'Saving...' : 'Save Preferences'}
+            {updatePreferences.isPending ? 'Saving...' : 'Save Preferences'}
           </Button>
         </CardContent>
       </Card>

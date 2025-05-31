@@ -21,49 +21,39 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAI } from '@/hooks/useAI';
-import PreferencesPanel from './PreferencesPanel';
 import ConversationList from './ConversationList';
 import SettingsPage from './auth/SettingsPage';
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const {
-    models,
-    prompts,
-    modelsLoading,
-    promptsLoading,
-    selectedModelId,
-    selectedPromptId,
-    parameters,
-    setSelectedModelId,
-    setSelectedPromptId,
-    setParameters,
-  } = useAI();
+  const [activeSettingsTab, setActiveSettingsTab] = useState('profile');
 
   const handleSignOut = async () => {
     await signOut();
   };
 
   const handleProfileClick = () => {
-    setShowProfile(true);
-    setShowSettings(false);
+    setActiveSettingsTab('profile');
+    setShowSettings(true);
   };
 
-  const handleSettingsClick = () => {
+  const handleAIPreferencesClick = () => {
+    setActiveSettingsTab('ai-preferences');
     setShowSettings(true);
-    setShowProfile(false);
+  };
+
+  const handleAppSettingsClick = () => {
+    setActiveSettingsTab('app-preferences');
+    setShowSettings(true);
   };
 
   const handleBackToChat = () => {
     setShowSettings(false);
-    setShowProfile(false);
   };
 
-  // Show settings page if either profile or settings is selected
-  if (showSettings || showProfile) {
+  // Show settings page if settings is active
+  if (showSettings) {
     return <SettingsPage onBack={handleBackToChat} />;
   }
 
@@ -123,21 +113,11 @@ const AppSidebar = () => {
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <PreferencesPanel
-                  models={models || []}
-                  prompts={prompts || []}
-                  selectedModelId={selectedModelId}
-                  selectedPromptId={selectedPromptId}
-                  parameters={parameters}
-                  onModelChange={setSelectedModelId}
-                  onPromptChange={setSelectedPromptId}
-                  onParametersChange={setParameters}
-                  disabled={modelsLoading || promptsLoading}
-                />
-                <span className="ml-2">AI Preferences</span>
+              <DropdownMenuItem onClick={handleAIPreferencesClick}>
+                <Bot className="mr-2 h-4 w-4" />
+                <span>AI Preferences</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSettingsClick}>
+              <DropdownMenuItem onClick={handleAppSettingsClick}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>App Settings</span>
               </DropdownMenuItem>

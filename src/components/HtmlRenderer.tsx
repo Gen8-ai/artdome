@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -14,6 +13,7 @@ import {
   Play
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ReactRenderer from './ReactRenderer';
 
 interface HtmlRendererProps {
   content: string;
@@ -24,6 +24,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [extractedCode, setExtractedCode] = useState<string[]>([]);
+  const [reactComponents, setReactComponents] = useState<string[]>([]);
   const [isCodeView, setIsCodeView] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
@@ -31,8 +32,10 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   useEffect(() => {
     // Extract code blocks from the content
     const codeBlocks = [];
+    const reactBlocks = [];
     const htmlMatches = content.match(/```html([\s\S]*?)```/g);
     const jsxMatches = content.match(/```jsx([\s\S]*?)```/g);
+    const reactMatches = content.match(/```react([\s\S]*?)```/g);
     const cssMatches = content.match(/```css([\s\S]*?)```/g);
     const jsMatches = content.match(/```javascript([\s\S]*?)```/g);
 
@@ -43,10 +46,13 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
       });
     }
 
-    if (jsxMatches) {
-      jsxMatches.forEach(match => {
-        const code = match.replace(/```jsx\n?/, '').replace(/```$/, '');
-        // Convert JSX to HTML for iframe rendering
+    if (jsxMatches || reactMatches) {
+      const allReactMatches = [...(jsxMatches || []), ...(reactMatches || [])];
+      allReactMatches.forEach(match => {
+        const code = match.replace(/```(?:jsx|react)\n?/, '').replace(/```$/, '');
+        reactBlocks.push(code);
+        
+        // Also create HTML version for fallback
         const htmlCode = `
 <!DOCTYPE html>
 <html>
@@ -106,9 +112,12 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
     }
 
     setExtractedCode(codeBlocks);
+    setReactComponents(reactBlocks);
   }, [content]);
 
   const currentCode = extractedCode[currentPage] || '';
+  const currentReactCode = reactComponents[currentPage] || '';
+  const isReactComponent = currentReactCode.length > 0;
 
   const handleRefresh = () => {
     if (iframeRef.current) {
@@ -168,7 +177,9 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
           <Button onClick={onClose} variant="ghost" size="sm">
             <X className="w-4 h-4" />
           </Button>
-          <div className="text-sm font-medium">HTML Renderer</div>
+          <div className="text-sm font-medium">
+            {isReactComponent ? 'React Component Renderer' : 'HTML Renderer'}
+          </div>
           {extractedCode.length > 1 && (
             <div className="text-xs text-muted-foreground">
               {currentPage + 1} of {extractedCode.length}
@@ -229,17 +240,31 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
         {isCodeView ? (
           <div className="h-full p-4">
             <pre className="bg-muted p-4 rounded-lg h-full overflow-auto text-sm">
-              <code>{currentCode}</code>
+              <code>{isReactComponent ? currentReactCode : currentCode}</code>
             </pre>
           </div>
         ) : (
-          <iframe
-            ref={iframeRef}
-            srcDoc={currentCode}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            title={`Rendered HTML ${currentPage + 1}`}
-          />
+          <>
+            {isReactComponent ? (
+              <ReactRenderer 
+                code={currentReactCode}
+                onCodeUpdate={(newCode) => {
+                  // Update the react components array
+                  const newReactComponents = [...reactComponents];
+                  newReactComponents[currentPage] = newCode;
+                  setReactComponents(newReactComponents);
+                }}
+              />
+            ) : (
+              <iframe
+                ref={iframeRef}
+                srcDoc={currentCode}
+                className="w-full h-full border-0"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+                title={`Rendered HTML ${currentPage + 1}`}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

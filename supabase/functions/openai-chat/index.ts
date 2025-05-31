@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -141,7 +140,11 @@ serve(async (req) => {
 
     if (userMsgError) throw userMsgError;
 
-    // Call OpenAI API
+    // Check if this is a code fixing request
+    const isCodeFixingRequest = systemPrompt?.includes('code fixing assistant') || 
+                               userMessage.includes('Fix the following ESLint errors');
+
+    // Call OpenAI API with adjusted parameters for code fixing
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -151,8 +154,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: selectedModel,
         messages: openaiMessages,
-        temperature: parameters?.temperature || 0.7,
-        max_tokens: parameters?.max_tokens || 1000,
+        temperature: isCodeFixingRequest ? 0.1 : (parameters?.temperature || 0.7),
+        max_tokens: isCodeFixingRequest ? 2000 : (parameters?.max_tokens || 1000),
         top_p: parameters?.top_p || 1.0,
         frequency_penalty: parameters?.frequency_penalty || 0.0,
         presence_penalty: parameters?.presence_penalty || 0.0,

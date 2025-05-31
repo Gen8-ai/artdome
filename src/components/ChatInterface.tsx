@@ -5,6 +5,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
+import { useMessages } from '@/hooks/useMessages';
+import { useConversation } from '@/contexts/ConversationContext';
+import { useConversations } from '@/hooks/useConversations';
 import ChatMessage from './ChatMessage';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -17,11 +20,14 @@ interface Message {
 
 const ChatInterface = () => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { currentConversationId } = useConversation();
+  const { createConversation } = useConversations();
+  const { messages, addMessage } = useMessages(currentConversationId || undefined);
 
   const { 
     prompts,
@@ -32,13 +38,21 @@ const ChatInterface = () => {
     setSelectedPromptId
   } = useAI();
 
+  // Convert database messages to component format
+  const displayMessages: Message[] = messages.map(msg => ({
+    id: msg.id,
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+    timestamp: new Date(msg.created_at),
+  }));
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [displayMessages]);
 
   // Filter prompts to show main categories
   const getPromptsByCategory = (category: string) => {
@@ -58,28 +72,41 @@ const ChatInterface = () => {
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue.trim(),
-      timestamp: new Date(),
-    };
+    let conversationId = currentConversationId;
 
-    setMessages(prev => [...prev, userMessage]);
+    // Create new conversation if none exists
+    if (!conversationId) {
+      try {
+        const newConversation = await createConversation.mutateAsync('New Chat');
+        conversationId = newConversation.id;
+      } catch (error) {
+        console.error('Failed to create conversation:', error);
+        return;
+      }
+    }
+
+    const userMessageContent = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
     try {
+      // Add user message to database
+      await addMessage.mutateAsync({
+        conversation_id: conversationId,
+        role: 'user',
+        content: userMessageContent,
+      });
+
       // Get the selected prompt content for system message
       const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
       const systemPrompt = selectedPrompt?.content;
 
       const { data, error } = await supabase.functions.invoke('openai-chat', {
         body: {
-          messages: [...messages, userMessage].map(msg => ({
+          messages: [...displayMessages.map(msg => ({
             role: msg.role,
             content: msg.content,
-          })),
+          })), { role: 'user', content: userMessageContent }],
           model: selectedModelId || 'gpt-4o',
           systemPrompt,
           ...parameters,
@@ -88,23 +115,27 @@ const ChatInterface = () => {
 
       if (error) throw error;
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+      // Add assistant response to database
+      await addMessage.mutateAsync({
+        conversation_id: conversationId,
         role: 'assistant',
         content: data.choices[0].message.content,
-        timestamp: new Date(),
-      };
+        model_used: selectedModelId || 'gpt-4o',
+        tokens_used: data.usage?.total_tokens,
+        cost: 0, // Calculate based on model pricing if needed
+      });
 
-      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      
+      // Add error message to database
+      if (conversationId) {
+        await addMessage.mutateAsync({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +153,7 @@ const ChatInterface = () => {
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          {messages.length === 0 ? (
+          {displayMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <Sparkles className="w-8 h-8 text-primary" />
@@ -134,7 +165,7 @@ const ChatInterface = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {messages.map((message) => (
+              {displayMessages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
               {isLoading && (

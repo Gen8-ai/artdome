@@ -12,17 +12,31 @@ import {
   SidebarMenuAction,
 } from '@/components/ui/sidebar';
 import { useConversations } from '@/hooks/useConversations';
+import { useConversation } from '@/contexts/ConversationContext';
 
 const ConversationList = () => {
   const { conversations, isLoading, createConversation, deleteConversation } = useConversations();
+  const { currentConversationId, setCurrentConversationId } = useConversation();
 
-  const handleCreateConversation = () => {
-    createConversation.mutate('New Chat');
+  const handleCreateConversation = async () => {
+    try {
+      const result = await createConversation.mutateAsync('New Chat');
+      setCurrentConversationId(result.id);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    }
   };
 
   const handleDeleteConversation = (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (currentConversationId === conversationId) {
+      setCurrentConversationId(null);
+    }
     deleteConversation.mutate(conversationId);
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
   };
 
   return (
@@ -58,7 +72,11 @@ const ConversationList = () => {
           ) : (
             conversations.map((conversation) => (
               <SidebarMenuItem key={conversation.id}>
-                <SidebarMenuButton className="group">
+                <SidebarMenuButton 
+                  className="group"
+                  isActive={currentConversationId === conversation.id}
+                  onClick={() => handleSelectConversation(conversation.id)}
+                >
                   <MessageSquare className="w-4 h-4" />
                   <span className="truncate">
                     {conversation.title || 'Untitled Chat'}

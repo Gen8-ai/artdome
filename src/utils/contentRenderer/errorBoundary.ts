@@ -1,6 +1,5 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AIService } from '@/services/ai/aiService';
+import { AIService, ErrorSuggestion } from '@/services/ai/aiService';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -131,9 +130,13 @@ export class ErrorBoundaryManager {
     }
   }
 
-  async generateErrorSuggestions(error: Error, code?: string): Promise<string[]> {
+  async generateErrorSuggestions(error: Error, code?: string): Promise<ErrorSuggestion[]> {
     if (!this.aiService) {
-      return ['No AI service available for error suggestions'];
+      return [{
+        type: 'logic',
+        description: 'No AI service available for error suggestions',
+        confidence: 0.1
+      }];
     }
 
     try {
@@ -141,7 +144,11 @@ export class ErrorBoundaryManager {
       return suggestions;
     } catch (err) {
       console.error('Failed to generate error suggestions:', err);
-      return ['Failed to generate suggestions'];
+      return [{
+        type: 'logic',
+        description: 'Failed to generate suggestions',
+        confidence: 0.1
+      }];
     }
   }
 

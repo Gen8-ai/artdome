@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { errorBoundaryManager } from '@/utils/contentRenderer/errorBoundary';
+import { ErrorSuggestion } from '@/services/ai/aiService';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Code } from 'lucide-react';
 
@@ -10,7 +11,7 @@ interface ErrorFallbackProps {
 }
 
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, retry }) => {
-  const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  const [suggestions, setSuggestions] = React.useState<ErrorSuggestion[]>([]);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {

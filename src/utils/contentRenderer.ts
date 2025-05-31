@@ -208,73 +208,42 @@ export class ContentRenderer {
 <body>
   <div id="root">${type === 'html' ? code : ''}</div>
   
-  <!-- Global setup script must come first -->
-  <script>
-    // Setup global exports object for CommonJS compatibility
-    window.exports = {};
-    window.module = { exports: {} };
-    
-    // Console capture setup
-    window.capturedErrors = [];
-    const originalConsoleError = console.error;
-    const originalConsoleWarn = console.warn;
-    
-    console.error = function(...args) {
-      const errorMsg = args.join(' ');
-      window.capturedErrors.push({
-        type: 'error',
-        message: errorMsg,
-        timestamp: Date.now()
-      });
-      
-      // Send to parent window
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'console-error',
-          message: errorMsg,
-          errors: window.capturedErrors
-        }, '*');
-      }
-      
-      originalConsoleError.apply(console, args);
-    };
-    
-    console.warn = function(...args) {
-      const warnMsg = args.join(' ');
-      window.capturedErrors.push({
-        type: 'warning',
-        message: warnMsg,
-        timestamp: Date.now()
-      });
-      
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'console-warning',
-          message: warnMsg
-        }, '*');
-      }
-      
-      originalConsoleWarn.apply(console, args);
-    };
-  </script>
-  
   ${type === 'react' || type === 'javascript' ? `
-    <!-- Load React dependencies first -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    ${includeLucideIcons ? `<script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js"></script>` : ''}
+    <!-- Load React libraries in correct order -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Setup global variables after libraries load -->
+    <!-- Setup global environment BEFORE other scripts -->
     <script>
-      // Ensure React globals are available
-      window.React = window.React || React;
-      window.ReactDOM = window.ReactDOM || ReactDOM;
+      // Ensure React is properly available globally
+      window.React = React;
+      window.ReactDOM = ReactDOM;
+      
+      // Setup module compatibility
+      window.exports = {};
+      window.module = { exports: {} };
+      
+      // Mock require for compatibility
+      window.require = function(module) {
+        if (module === 'react') return window.React;
+        if (module === 'react-dom') return window.ReactDOM;
+        return {};
+      };
       
       ${includeLucideIcons ? `
-      // Setup Lucide icons globally
-      if (window.LucideReact) {
-        window.LucideReact = window.LucideReact;
-      }
+      // Setup Lucide icons globally (will be loaded after)
+      window.setupLucideIcons = function() {
+        if (window.LucideReact) {
+          // Common icons as globals
+          const iconNames = ['Home', 'Settings', 'User', 'Search', 'Menu', 'X', 'Plus', 'Minus', 'Edit', 'Delete', 'Save', 'Cancel', 'Check', 'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'Arrow-up', 'Arrow-down'];
+          iconNames.forEach(iconName => {
+            const kebabName = iconName.toLowerCase().replace(/([A-Z])/g, '-$1').replace(/^-/, '');
+            if (window.LucideReact[iconName]) {
+              window[iconName] = window.LucideReact[iconName];
+            }
+          });
+        }
+      };
       ` : ''}
       
       ${includeShadcnUI ? `
@@ -318,15 +287,6 @@ export class ContentRenderer {
 
         componentDidCatch(error, errorInfo) {
           console.error('React Error Boundary caught an error:', error, errorInfo);
-          
-          if (window.parent !== window) {
-            window.parent.postMessage({
-              type: 'react-error',
-              message: error.message,
-              stack: error.stack,
-              componentStack: errorInfo.componentStack
-            }, '*');
-          }
         }
 
         render() {
@@ -351,55 +311,50 @@ export class ContentRenderer {
         }
       };
     </script>
-  ` : ''}
-  
-  ${type === 'react' ? `
-    <!-- Load Babel for JSX transformation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    ${includeLucideIcons ? `
+    <!-- Load Lucide icons and setup -->
+    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js" onload="window.setupLucideIcons && window.setupLucideIcons()"></script>
+    ` : ''}
     
     <!-- User code execution -->
-    <script type="text/babel">
+    <script>
       try {
         ${code}
         
-        // Try to render the component
+        // Auto-detect and render component
         const rootElement = document.getElementById('root');
+        let ComponentToRender = null;
         
+        // Try different component names
         if (typeof App !== 'undefined') {
-          ReactDOM.render(
-            React.createElement(window.ErrorBoundary, null, React.createElement(App)),
-            rootElement
-          );
+          ComponentToRender = App;
         } else if (typeof Component !== 'undefined') {
+          ComponentToRender = Component;
+        } else {
+          // Try to find any function that looks like a React component
+          const componentMatch = \`${code}\`.match(/(?:function|const)\\s+([A-Z]\\w*)\\s*[=(]/);
+          if (componentMatch) {
+            const componentName = componentMatch[1];
+            if (typeof window[componentName] !== 'undefined') {
+              ComponentToRender = window[componentName];
+            } else {
+              try {
+                ComponentToRender = eval(componentName);
+              } catch (e) {
+                console.warn('Could not evaluate component:', componentName, e);
+              }
+            }
+          }
+        }
+        
+        if (ComponentToRender && typeof ComponentToRender === 'function') {
           ReactDOM.render(
-            React.createElement(window.ErrorBoundary, null, React.createElement(Component)),
+            React.createElement(window.ErrorBoundary, null, React.createElement(ComponentToRender)),
             rootElement
           );
         } else {
-          // Try to find any React component in the code
-          const componentMatch = \`${code}\`.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
-          if (componentMatch) {
-            const ComponentName = componentMatch[1];
-            if (typeof window[ComponentName] !== 'undefined') {
-              ReactDOM.render(
-                React.createElement(window.ErrorBoundary, null, React.createElement(window[ComponentName])),
-                rootElement
-              );
-            } else {
-              try {
-                const Component = eval(ComponentName);
-                ReactDOM.render(
-                  React.createElement(window.ErrorBoundary, null, React.createElement(Component)),
-                  rootElement
-                );
-              } catch (e) {
-                console.error('Could not render component:', e);
-                rootElement.innerHTML = '<div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;"><h3>⚠️ Render Error</h3><p>No valid React component found. Make sure to export a component named "App" or define a function component.</p></div>';
-              }
-            }
-          } else {
-            rootElement.innerHTML = '<div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;"><h3>⚠️ Render Error</h3><p>No valid React component found. Make sure to export a component named "App" or define a function component.</p></div>';
-          }
+          rootElement.innerHTML = '<div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 14px;"><h3>⚠️ No Component Found</h3><p>Make sure to define a React component function (e.g., App, Component, or any function starting with uppercase).</p></div>';
         }
       } catch (error) {
         console.error('Failed to render React component:', error);

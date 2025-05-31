@@ -43,9 +43,8 @@ const handler = async (req: Request): Promise<Response> => {
     let cssCode = '';
     
     if (type === 'react') {
-      // Extract imports and transform for browser compatibility
-      const { imports, cleanCode, transformedImports } = extractAndTransformImports(code);
-      dependencies = extractDependencies(imports);
+      // Clean the code and remove ES6 imports/exports
+      const cleanedCode = cleanAndTransformReactCode(code);
       
       // Add Tailwind CSS if requested
       if (options.includeTailwind) {
@@ -53,28 +52,8 @@ const handler = async (req: Request): Promise<Response> => {
         dependencies.push('tailwindcss');
       }
       
-      // Create the final compiled code structure with proper global assignments
-      compiledCode = `
-        ${transformedImports}
-        
-        ${cleanCode}
-        
-        // Auto-export component for rendering
-        if (typeof App !== 'undefined') {
-          window.App = App;
-        } else if (typeof Component !== 'undefined') {
-          window.Component = Component;
-        } else {
-          // Try to find and export any React component
-          const componentMatch = \`${cleanCode}\`.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
-          if (componentMatch) {
-            const componentName = componentMatch[1];
-            if (typeof eval(componentName) === 'function') {
-              window[componentName] = eval(componentName);
-            }
-          }
-        }
-      `;
+      // Create browser-compatible React code
+      compiledCode = cleanedCode;
       
       console.log('React code compiled successfully');
     } else if (type === 'javascript') {
@@ -115,102 +94,30 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-function extractAndTransformImports(code: string): { imports: string[], cleanCode: string, transformedImports: string } {
-  const importLines: string[] = [];
-  const lines = code.split('\n');
-  let inImportBlock = false;
-  const cleanLines: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    if (line.startsWith('import ') && !inImportBlock) {
-      inImportBlock = true;
-      importLines.push(lines[i]);
-    } else if (inImportBlock && (line.startsWith('import ') || line === '' || line.startsWith('//'))) {
-      if (line.startsWith('import ')) {
-        importLines.push(lines[i]);
-      }
-    } else {
-      inImportBlock = false;
-      cleanLines.push(lines[i]);
-    }
-  }
-
-  const transformedImports = transformImportsToGlobals(importLines);
-
-  return {
-    imports: importLines,
-    cleanCode: cleanLines.join('\n').trim(),
-    transformedImports
-  };
-}
-
-function transformImportsToGlobals(imports: string[]): string {
-  const transformations: string[] = [];
+function cleanAndTransformReactCode(code: string): string {
+  let cleanCode = code;
   
-  imports.forEach(importLine => {
-    // Handle React default import
-    const reactDefaultMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react['"]/);
-    if (reactDefaultMatch && reactDefaultMatch[1] !== 'React') {
-      transformations.push(`const ${reactDefaultMatch[1]} = window.React;`);
-    }
-    
-    // Handle React named imports
-    const reactNamedMatch = importLine.match(/import\s+\{([^}]+)\}\s+from\s+['"]react['"]/);
-    if (reactNamedMatch) {
-      const namedImports = reactNamedMatch[1].split(',').map(imp => imp.trim());
-      namedImports.forEach(namedImport => {
-        const [importName, alias] = namedImport.split(' as ').map(s => s.trim());
-        const finalName = alias || importName;
-        transformations.push(`const ${finalName} = window.React.${importName};`);
-      });
-    }
-    
-    // Handle ReactDOM imports
-    const reactDOMMatch = importLine.match(/import\s+(\w+)\s+from\s+['"]react-dom['"]/);
-    if (reactDOMMatch && reactDOMMatch[1] !== 'ReactDOM') {
-      transformations.push(`const ${reactDOMMatch[1]} = window.ReactDOM;`);
-    }
-
-    // Handle Lucide React imports
-    const lucideMatch = importLine.match(/import\s+\{([^}]+)\}\s+from\s+['"]lucide-react['"]/);
-    if (lucideMatch) {
-      const lucideImports = lucideMatch[1].split(',').map(imp => imp.trim());
-      lucideImports.forEach(iconImport => {
-        const [iconName, alias] = iconImport.split(' as ').map(s => s.trim());
-        const finalName = alias || iconName;
-        transformations.push(`const ${finalName} = window.LucideReact?.${iconName} || function() { return React.createElement('div', {}, '${iconName}'); };`);
-      });
-    }
-
-    // Handle shadcn/ui imports
-    const shadcnMatch = importLine.match(/import\s+\{([^}]+)\}\s+from\s+['"]@\/components\/ui\/([^'"]+)['"]/);
-    if (shadcnMatch) {
-      const [, imports, componentPath] = shadcnMatch;
-      const componentImports = imports.split(',').map(imp => imp.trim());
-      componentImports.forEach(compImport => {
-        const [compName, alias] = compImport.split(' as ').map(s => s.trim());
-        const finalName = alias || compName;
-        transformations.push(`const ${finalName} = window.ShadcnUI?.${compName} || function() { return React.createElement('div', {}, '${compName}'); };`);
-      });
-    }
-  });
+  // Remove all import statements
+  cleanCode = cleanCode.replace(/^import\s+.*?;?\s*$/gm, '');
   
-  return transformations.join('\n');
-}
-
-function extractDependencies(imports: string[]): string[] {
-  const deps: string[] = [];
+  // Remove export statements and convert to assignments
+  cleanCode = cleanCode.replace(/^export\s+default\s+(\w+);?\s*$/gm, '// Component: $1');
+  cleanCode = cleanCode.replace(/^export\s+\{([^}]+)\};?\s*$/gm, '// Exports: $1');
+  cleanCode = cleanCode.replace(/^export\s+(const|let|var|function|class)\s+/gm, '$1 ');
   
-  imports.forEach(importLine => {
-    const match = importLine.match(/from\s+['"]([^'"]+)['"]/);
-    if (match) {
-      deps.push(match[1]);
-    }
-  });
+  // Clean up any remaining exports
+  cleanCode = cleanCode.replace(/^export\s+/gm, '');
   
-  return deps;
+  // Remove empty lines and trim
+  cleanCode = cleanCode.replace(/^\s*[\r\n]/gm, '').trim();
+  
+  // Ensure React hooks are available as globals
+  const reactHooks = ['useState', 'useEffect', 'useContext', 'useReducer', 'useCallback', 'useMemo', 'useRef', 'useImperativeHandle', 'useLayoutEffect', 'useDebugValue'];
+  
+  // Add React hook destructuring at the top
+  const hookSetup = reactHooks.map(hook => `const ${hook} = React.${hook};`).join('\n');
+  
+  return `${hookSetup}\n\n${cleanCode}`;
 }
 
 function generateTailwindCSS(): string {

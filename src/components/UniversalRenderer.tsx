@@ -43,7 +43,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   };
 
   const renderContent = () => {
-    if (!iframeRef.current) return;
+    if (!iframeRef.current || !block) return;
     
     setIsLoading(true);
     setHasErrors(false);
@@ -58,7 +58,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       const loadingTimeout = setTimeout(() => {
         setIsLoading(false);
         onSuccess?.();
-      }, defaultOptions.timeout || 5000);
+      }, Math.min(defaultOptions.timeout || 5000, 5000));
 
       // Clear timeout on unmount
       return () => clearTimeout(loadingTimeout);
@@ -86,7 +86,16 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   };
 
   const handleMessage = (event: MessageEvent) => {
+    // Only handle messages from our iframe
+    if (event.source !== iframeRef.current?.contentWindow) {
+      return;
+    }
+
     const { data } = event;
+    
+    if (!data || typeof data !== 'object') {
+      return;
+    }
     
     if (data.type?.startsWith('console-')) {
       setConsoleLogs(prev => [...prev, data]);
@@ -142,6 +151,14 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
     if (hasErrors) return `${errorLogs.length} Error(s)`;
     return 'Ready';
   };
+
+  if (!block) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">No content to render</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

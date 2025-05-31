@@ -9,6 +9,10 @@ export const useContentParser = (content: string) => {
 
   const parseContent = useMemo(() => {
     return (text: string): ContentBlock[] => {
+      if (!text || typeof text !== 'string') {
+        return [];
+      }
+
       const blocks: ContentBlock[] = [];
       
       try {
@@ -29,19 +33,21 @@ export const useContentParser = (content: string) => {
           let match;
           while ((match = regex.exec(text)) !== null) {
             const code = match[1];
-            const detectedType = contentRenderer.detectContentType(code);
-            
-            blocks.push({
-              id: `${patternType}-${blocks.length}`,
-              type: detectedType,
-              code,
-              title: `${patternType.charAt(0).toUpperCase() + patternType.slice(1)} Content`,
-              language: patternType === 'jsx' || patternType === 'react' ? 'javascript' : patternType,
-              metadata: {
-                originalPattern: patternType,
-                matchIndex: match.index
-              }
-            });
+            if (code && code.trim()) {
+              const detectedType = contentRenderer.detectContentType(code);
+              
+              blocks.push({
+                id: `${patternType}-${blocks.length}`,
+                type: detectedType,
+                code: code.trim(),
+                title: `${patternType.charAt(0).toUpperCase() + patternType.slice(1)} Content`,
+                language: patternType === 'jsx' || patternType === 'react' ? 'javascript' : patternType,
+                metadata: {
+                  originalPattern: patternType,
+                  matchIndex: match.index
+                }
+              });
+            }
           }
         });
 
@@ -53,19 +59,17 @@ export const useContentParser = (content: string) => {
         });
 
         // If no specific patterns found, try to detect the whole content
-        if (blocks.length === 0) {
+        if (blocks.length === 0 && text.trim().length > 0) {
           const detectedType = contentRenderer.detectContentType(text);
-          if (detectedType !== 'html' || text.trim().length > 0) {
-            blocks.push({
-              id: 'content-0',
-              type: detectedType,
-              code: text,
-              title: 'Detected Content',
-              metadata: {
-                isFullContent: true
-              }
-            });
-          }
+          blocks.push({
+            id: 'content-0',
+            type: detectedType,
+            code: text.trim(),
+            title: 'Detected Content',
+            metadata: {
+              isFullContent: true
+            }
+          });
         }
 
         return blocks;

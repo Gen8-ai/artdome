@@ -20,7 +20,6 @@ export interface RenderingOptions {
 
 export class ContentRenderer {
   private static instance: ContentRenderer;
-  private cdnCache = new Map<string, boolean>();
   
   static getInstance(): ContentRenderer {
     if (!ContentRenderer.instance) {
@@ -31,6 +30,8 @@ export class ContentRenderer {
 
   // Enhanced content detection with smarter parsing
   detectContentType(code: string): ContentBlock['type'] {
+    if (!code || typeof code !== 'string') return 'html';
+    
     // Remove comments and strings for better analysis
     const cleanCode = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').replace(/["'`][\s\S]*?["'`]/g, '');
     
@@ -191,6 +192,7 @@ export class ContentRenderer {
 
   private getErrorBoundaryScript(): string {
     return `
+      // Enhanced error boundary for React components
       class ErrorBoundary extends React.Component {
         constructor(props) {
           super(props);
@@ -204,12 +206,15 @@ export class ContentRenderer {
         componentDidCatch(error, errorInfo) {
           this.setState({ error: error.message, errorInfo });
           
-          window.parent.postMessage({
-            type: 'react-error',
-            message: error.message,
-            stack: error.stack,
-            componentStack: errorInfo.componentStack
-          }, '*');
+          // Send error to parent window
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'react-error',
+              message: error.message,
+              stack: error.stack,
+              componentStack: errorInfo.componentStack
+            }, '*');
+          }
         }
 
         render() {
@@ -218,11 +223,7 @@ export class ContentRenderer {
               className: 'error-display'
             }, [
               React.createElement('h3', { key: 'title' }, '⚠️ Component Error'),
-              React.createElement('p', { key: 'message' }, this.state.error),
-              this.state.errorInfo && React.createElement('details', { key: 'details' }, [
-                React.createElement('summary', { key: 'summary' }, 'Error Details'),
-                React.createElement('pre', { key: 'stack' }, this.state.errorInfo.componentStack)
-              ])
+              React.createElement('p', { key: 'message' }, this.state.error)
             ]);
           }
           return this.props.children;
@@ -233,60 +234,93 @@ export class ContentRenderer {
 
   private getConsoleCapture(): string {
     return `
+      // Enhanced console capture with error prevention
       (function() {
-        const originalConsole = {
-          log: console.log,
-          error: console.error,
-          warn: console.warn,
-          info: console.info
-        };
-        
-        window.capturedLogs = [];
-        
-        ['log', 'error', 'warn', 'info'].forEach(method => {
-          console[method] = function(...args) {
-            const message = args.map(arg => 
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            ).join(' ');
-            
-            window.capturedLogs.push({
-              type: method,
-              message,
-              timestamp: Date.now()
-            });
-            
-            window.parent.postMessage({
-              type: 'console-' + method,
-              message,
-              logs: window.capturedLogs
-            }, '*');
-            
-            originalConsole[method].apply(console, args);
+        try {
+          const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
           };
-        });
-        
-        window.addEventListener('error', (event) => {
-          window.parent.postMessage({
-            type: 'runtime-error',
-            message: event.message,
-            filename: event.filename,
-            lineno: event.lineno,
-            colno: event.colno,
-            error: event.error ? event.error.stack : null
-          }, '*');
-        });
-        
-        window.addEventListener('unhandledrejection', (event) => {
-          window.parent.postMessage({
-            type: 'promise-rejection',
-            message: event.reason ? String(event.reason) : 'Unhandled promise rejection'
-          }, '*');
-        });
+          
+          window.capturedLogs = [];
+          
+          ['log', 'error', 'warn', 'info'].forEach(method => {
+            console[method] = function(...args) {
+              try {
+                const message = args.map(arg => {
+                  try {
+                    return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+                  } catch (e) {
+                    return '[Circular or Non-serializable Object]';
+                  }
+                }).join(' ');
+                
+                window.capturedLogs.push({
+                  type: method,
+                  message,
+                  timestamp: Date.now()
+                });
+                
+                // Send to parent window safely
+                if (window.parent !== window) {
+                  window.parent.postMessage({
+                    type: 'console-' + method,
+                    message,
+                    logs: window.capturedLogs
+                  }, '*');
+                }
+                
+                originalConsole[method].apply(console, args);
+              } catch (e) {
+                // Fallback to original console if anything fails
+                originalConsole[method].apply(console, args);
+              }
+            };
+          });
+          
+          // Enhanced error handling
+          window.addEventListener('error', (event) => {
+            try {
+              if (window.parent !== window) {
+                window.parent.postMessage({
+                  type: 'runtime-error',
+                  message: event.message || 'Unknown error',
+                  filename: event.filename || '',
+                  lineno: event.lineno || 0,
+                  colno: event.colno || 0,
+                  error: event.error ? event.error.stack : null
+                }, '*');
+              }
+            } catch (e) {
+              // Silently fail if postMessage fails
+            }
+          });
+          
+          window.addEventListener('unhandledrejection', (event) => {
+            try {
+              if (window.parent !== window) {
+                window.parent.postMessage({
+                  type: 'promise-rejection',
+                  message: event.reason ? String(event.reason) : 'Unhandled promise rejection'
+                }, '*');
+              }
+            } catch (e) {
+              // Silently fail if postMessage fails
+            }
+          });
+        } catch (e) {
+          // If anything fails in console setup, just continue
+        }
       })();
     `;
   }
 
   private generateReactDocument(content: ContentBlock, baseStyles: string, errorBoundary: string, consoleScript: string): string {
+    // Escape content code for safe injection
+    const escapedCode = content.code.replace(/`/g, '\\`').replace(/\${/g, '\\${');
+    
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -309,61 +343,69 @@ export class ContentRenderer {
   </script>
   
   <script type="text/babel">
-    ${errorBoundary}
-    
     try {
+      ${errorBoundary}
+      
+      // Component code
       ${content.code}
       
+      // Enhanced component rendering with multiple strategies
       const rootElement = document.getElementById('root');
       
-      // Enhanced component detection and rendering
       const renderComponent = () => {
-        if (typeof App !== 'undefined') {
-          ReactDOM.render(
-            React.createElement(ErrorBoundary, null, React.createElement(App)),
-            rootElement
-          );
-        } else {
-          // Try to find any exported component
-          const componentMatch = \`${content.code}\`.match(/export\\s+(default\\s+)?(function|const|class)\\s+(\\w+)/);
-          if (componentMatch) {
-            const ComponentName = componentMatch[3];
-            if (typeof window[ComponentName] !== 'undefined') {
+        try {
+          // Strategy 1: Look for App component
+          if (typeof App !== 'undefined') {
+            ReactDOM.render(
+              React.createElement(ErrorBoundary, null, React.createElement(App)),
+              rootElement
+            );
+            return true;
+          }
+          
+          // Strategy 2: Look for default export
+          if (typeof module !== 'undefined' && module.exports && typeof module.exports.default !== 'undefined') {
+            ReactDOM.render(
+              React.createElement(ErrorBoundary, null, React.createElement(module.exports.default)),
+              rootElement
+            );
+            return true;
+          }
+          
+          // Strategy 3: Find any function that looks like a component
+          const componentRegex = /(?:export\\s+default\\s+|export\\s+|const\\s+|function\\s+)(\\w+)/g;
+          let match;
+          while ((match = componentRegex.exec(\`${escapedCode}\`)) !== null) {
+            const componentName = match[1];
+            if (typeof window[componentName] === 'function') {
               ReactDOM.render(
-                React.createElement(ErrorBoundary, null, React.createElement(window[ComponentName])),
+                React.createElement(ErrorBoundary, null, React.createElement(window[componentName])),
                 rootElement
               );
-            } else {
-              try {
-                const Component = eval(ComponentName);
-                ReactDOM.render(
-                  React.createElement(ErrorBoundary, null, React.createElement(Component)),
-                  rootElement
-                );
-              } catch (e) {
-                console.error('Could not render component:', ComponentName, e);
-                rootElement.innerHTML = '<div class="error-display">Could not find or render component: ' + ComponentName + '</div>';
-              }
+              return true;
             }
-          } else {
-            rootElement.innerHTML = '<div class="error-display">No valid React component found. Please export a component named "App" or use a proper component export.</div>';
           }
+          
+          return false;
+        } catch (e) {
+          console.error('Component rendering failed:', e);
+          return false;
         }
       };
       
-      // Render with a small delay to ensure all code is parsed
-      setTimeout(renderComponent, 100);
+      // Try rendering with a delay to ensure all code is parsed
+      setTimeout(() => {
+        if (!renderComponent()) {
+          rootElement.innerHTML = '<div class="error-display"><h3>⚠️ No Renderable Component</h3><p>Could not find a valid React component. Please ensure you have an "App" component or properly exported component.</p></div>';
+        }
+      }, 100);
       
     } catch (error) {
-      console.error('Failed to parse/render React component:', error);
+      console.error('Failed to parse React component:', error);
       document.getElementById('root').innerHTML = \`
         <div class="error-display">
           <h3>⚠️ Parse Error</h3>
           <p>\${error.message}</p>
-          <details>
-            <summary>Stack Trace</summary>
-            <pre>\${error.stack}</pre>
-          </details>
         </div>
       \`;
     }
@@ -449,7 +491,6 @@ export class ContentRenderer {
         <div class="error-display">
           <h3>⚠️ JavaScript Error</h3>
           <p>\${error.message}</p>
-          <pre>\${error.stack}</pre>
         </div>
       \`;
     }
@@ -459,15 +500,6 @@ export class ContentRenderer {
   }
 
   private generateMixedDocument(content: ContentBlock, baseStyles: string, consoleScript: string): string {
-    // Extract CSS and JS from mixed content
-    const cssMatches = content.code.match(/```css\n([\s\S]*?)```/g) || [];
-    const jsMatches = content.code.match(/```javascript\n([\s\S]*?)```/g) || [];
-    const htmlMatches = content.code.match(/```html\n([\s\S]*?)```/g) || [];
-    
-    const css = cssMatches.map(match => match.replace(/```css\n?/, '').replace(/```$/, '')).join('\n');
-    const js = jsMatches.map(match => match.replace(/```javascript\n?/, '').replace(/```$/, '')).join('\n');
-    const html = htmlMatches.map(match => match.replace(/```html\n?/, '').replace(/```$/, '')).join('\n');
-    
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -476,34 +508,17 @@ export class ContentRenderer {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${content.title || 'Mixed Content'}</title>
   <style>${baseStyles}</style>
-  ${css ? `<style>${css}</style>` : ''}
 </head>
 <body>
   <div class="content-wrapper">
-    ${html || '<div id="content">Mixed content preview</div>'}
+    <pre><code>${content.code}</code></pre>
   </div>
-  
   <script>${consoleScript}</script>
-  ${js ? `<script>${js}</script>` : ''}
 </body>
 </html>`;
   }
 
   private generateSpecialDocument(content: ContentBlock, baseStyles: string, consoleScript: string): string {
-    let processedCode = content.code;
-    
-    // Process Canvas content
-    if (content.type === 'canvas') {
-      processedCode = processedCode.replace(/```canvas\n?/, '').replace(/```$/, '')
-                                 .replace(/\[Canvas\]/, '').replace(/\[\/Canvas\]/, '');
-    }
-    
-    // Process Artifact content
-    if (content.type === 'artifact') {
-      processedCode = processedCode.replace(/<artifact[^>]*>/, '').replace(/<\/artifact>/, '')
-                                 .replace(/```artifact\n?/, '').replace(/```$/, '');
-    }
-    
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -516,7 +531,7 @@ export class ContentRenderer {
 <body>
   <div class="content-wrapper">
     ${content.description ? `<p style="color: #666; margin-bottom: 1rem;">${content.description}</p>` : ''}
-    <pre><code>${processedCode}</code></pre>
+    <pre><code>${content.code}</code></pre>
   </div>
   <script>${consoleScript}</script>
 </body>

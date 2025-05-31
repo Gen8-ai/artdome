@@ -64,9 +64,9 @@ export class E2BExecutor {
 
       // Execute the code
       logs.push('Executing code...');
-      const execution = await sandbox.runCode(language, code, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
+      const execution = await sandbox.runCode(code, {
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -75,8 +75,8 @@ export class E2BExecutor {
       if (execution.error) {
         return {
           success: false,
-          output: execution.stdout || '',
-          error: execution.stderr || execution.error,
+          output: execution.results.map(r => r.text || '').join('\n') || '',
+          error: execution.error.name + ': ' + execution.error.value,
           executionTime,
           logs
         };
@@ -90,7 +90,7 @@ export class E2BExecutor {
 
       return {
         success: true,
-        output: execution.stdout || 'Code executed successfully',
+        output: execution.results.map(r => r.text || '').join('\n') || 'Code executed successfully',
         executionTime,
         files,
         logs
@@ -125,15 +125,15 @@ export class E2BExecutor {
       // Write all files to the sandbox
       for (const [filename, content] of Object.entries(files)) {
         logs.push(`Writing file: ${filename}`);
-        await sandbox.writeFile(filename, content);
+        await sandbox.files.write(filename, content);
       }
 
       // Execute the entry point
       logs.push(`Executing entry point: ${entryPoint}`);
       const language = detectLanguage(files[entryPoint] || '');
-      const execution = await sandbox.runCode(language, `exec(open('${entryPoint}').read())`, {
-        onStderr: (stderr) => logs.push(`STDERR: ${stderr}`),
-        onStdout: (stdout) => logs.push(`STDOUT: ${stdout}`)
+      const execution = await sandbox.runCode(`exec(open('${entryPoint}').read())`, {
+        onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
+        onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
       });
 
       const executionTime = Date.now() - startTime;
@@ -141,8 +141,8 @@ export class E2BExecutor {
       if (execution.error) {
         return {
           success: false,
-          output: execution.stdout || '',
-          error: execution.stderr || execution.error,
+          output: execution.results.map(r => r.text || '').join('\n') || '',
+          error: execution.error.name + ': ' + execution.error.value,
           executionTime,
           logs
         };
@@ -152,7 +152,7 @@ export class E2BExecutor {
 
       return {
         success: true,
-        output: execution.stdout || 'Project executed successfully',
+        output: execution.results.map(r => r.text || '').join('\n') || 'Project executed successfully',
         executionTime,
         files: fileContents,
         logs
@@ -200,13 +200,13 @@ export class E2BExecutor {
     switch (language) {
       case 'python':
         for (const pkg of packages) {
-          await sandbox.runCode('bash', `pip install ${pkg}`);
+          await sandbox.runCode(`!pip install ${pkg}`);
         }
         break;
       case 'javascript':
       case 'typescript':
         for (const pkg of packages) {
-          await sandbox.runCode('bash', `npm install ${pkg}`);
+          await sandbox.runCode(`!npm install ${pkg}`);
         }
         break;
       default:
@@ -217,14 +217,15 @@ export class E2BExecutor {
   private async getFileSystemContents(sandbox: Sandbox): Promise<FileInfo[]> {
     try {
       const files: FileInfo[] = [];
-      const execution = await sandbox.runCode('bash', 'find . -type f -name "*" | head -20');
+      const execution = await sandbox.runCode('!find . -type f -name "*" | head -20');
       
-      if (execution.stdout) {
-        const filePaths = execution.stdout.split('\n').filter(path => path.trim());
+      if (execution.results && execution.results.length > 0) {
+        const output = execution.results.map(r => r.text || '').join('\n');
+        const filePaths = output.split('\n').filter(path => path.trim());
         
         for (const filePath of filePaths) {
           try {
-            const content = await sandbox.readFile(filePath);
+            const content = await sandbox.files.read(filePath);
             files.push({
               name: filePath.split('/').pop() || filePath,
               content,
@@ -247,14 +248,14 @@ export class E2BExecutor {
   async closeSession(sessionId: string = 'default'): Promise<void> {
     const sandbox = this.activeSandboxes.get(sessionId);
     if (sandbox) {
-      await sandbox.close();
+      await sandbox.kill();
       this.activeSandboxes.delete(sessionId);
     }
   }
 
   async closeAllSessions(): Promise<void> {
     const closePromises = Array.from(this.activeSandboxes.values()).map(
-      sandbox => sandbox.close()
+      sandbox => sandbox.kill()
     );
     await Promise.all(closePromises);
     this.activeSandboxes.clear();

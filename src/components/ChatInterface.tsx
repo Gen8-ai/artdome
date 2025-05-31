@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Sparkles, MessageSquare } from 'lucide-react';
+import { Send, Sparkles, MessageSquare, Bot, Code2, BookOpen, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 import ChatMessage from './ChatMessage';
@@ -23,7 +23,14 @@ const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { selectedModelId, selectedPromptId, parameters } = useAI();
+  const { 
+    prompts,
+    promptsLoading,
+    selectedModelId, 
+    selectedPromptId, 
+    parameters,
+    setSelectedPromptId
+  } = useAI();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,6 +39,38 @@ const ChatInterface = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const promptButtons = [
+    {
+      id: 'code',
+      label: 'Code Prompt',
+      icon: Code2,
+      category: 'interact'
+    },
+    {
+      id: 'creative',
+      label: 'Creative Writing',
+      icon: BookOpen,
+      category: 'story'
+    },
+    {
+      id: 'research',
+      label: 'Research',
+      icon: Search,
+      category: 'search'
+    }
+  ];
+
+  const handlePromptSelect = (category: string) => {
+    const prompt = prompts?.find(p => p.category === category);
+    if (prompt) {
+      setSelectedPromptId(prompt.id);
+    }
+  };
+
+  const handleGeneralPrompt = () => {
+    setSelectedPromptId('');
+  };
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -92,6 +131,41 @@ const ChatInterface = () => {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* System Prompt Buttons */}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm p-4">
+        <div className="max-w-4xl mx-auto">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">System Prompts</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={!selectedPromptId ? "default" : "outline"}
+              onClick={handleGeneralPrompt}
+              className="h-auto p-3 flex-shrink-0"
+            >
+              <Bot className="w-4 h-4 mr-2" />
+              <span>General</span>
+            </Button>
+            
+            {promptButtons.map((button) => {
+              const isSelected = prompts?.find(p => p.category === button.category)?.id === selectedPromptId;
+              const IconComponent = button.icon;
+              
+              return (
+                <Button
+                  key={button.id}
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => handlePromptSelect(button.category)}
+                  className="h-auto p-3 flex-shrink-0"
+                  disabled={promptsLoading}
+                >
+                  <IconComponent className="w-4 h-4 mr-2" />
+                  <span>{button.label}</span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-6">

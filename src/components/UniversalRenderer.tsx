@@ -23,19 +23,28 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
 
   useEffect(() => {
     const renderContent = async () => {
-      if (!iframeRef.current) return;
+      // Add null check for iframe ref
+      if (!iframeRef.current) {
+        console.log('Iframe ref not ready, skipping render');
+        return;
+      }
 
       try {
         setIsLoading(true);
         setError(null);
         onCompilationStart?.();
 
+        console.log('Starting content compilation...');
         const htmlContent = await contentRenderer.generateHtmlDocument(block, {
           ...options,
           useCompilation: true
         });
 
-        iframeRef.current.srcdoc = htmlContent;
+        // Double-check the ref is still valid before setting srcdoc
+        if (iframeRef.current) {
+          iframeRef.current.srcdoc = htmlContent;
+          console.log('Content rendered successfully');
+        }
       } catch (err) {
         console.error('Rendering error:', err);
         setError(err instanceof Error ? err.message : 'Rendering failed');
@@ -45,7 +54,12 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       }
     };
 
-    renderContent();
+    // Add a small delay to ensure the iframe is mounted
+    const timeoutId = setTimeout(() => {
+      renderContent();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [block, options, onCompilationStart, onCompilationEnd]);
 
   // Handle special cases

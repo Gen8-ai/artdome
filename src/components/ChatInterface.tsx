@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -137,115 +136,145 @@ const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col lg:flex-row">
-      {/* Main Chat Area */}
-      <div className={`flex flex-col ${selectedArtifact ? 'lg:w-1/2' : 'w-full'} transition-all duration-300`}>
-        {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-          <div className="flex items-center space-x-3">
-            <h1 className="text-lg lg:text-xl font-semibold text-foreground">AI Assistant</h1>
-          </div>
-          <PreferencesPanel
-            models={models || []}
-            prompts={prompts || []}
-            selectedModelId={selectedModelId}
-            selectedPromptId={selectedPromptId}
-            parameters={parameters}
-            onModelChange={setSelectedModelId}
-            onPromptChange={setSelectedPromptId}
-            onParametersChange={setParameters}
-            disabled={isLoading || modelsLoading || promptsLoading}
-          />
-        </div>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground max-w-md">
-                <h2 className="text-xl lg:text-2xl font-semibold mb-2 text-foreground">
-                  Welcome to AI Assistant
-                </h2>
-                <p className="text-sm lg:text-base">
-                  Start a conversation by typing a message below.
-                </p>
-                {modelsLoading && (
-                  <p className="mt-2 text-sm">Loading AI models...</p>
-                )}
+    <div className="flex h-full bg-background">
+      {/* Main Chat Container */}
+      <div className={`flex flex-col transition-all duration-300 ease-in-out ${
+        selectedArtifact ? 'w-1/2' : 'w-full'
+      }`}>
+        
+        {/* Header */}
+        <div className="flex-shrink-0 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <span className="text-primary font-semibold text-sm">AI</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-foreground">AI Assistant</h1>
+                <p className="text-sm text-muted-foreground">Powered by advanced AI models</p>
               </div>
             </div>
-          ) : (
-            messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                onArtifactClick={() => message.artifact && handleArtifactClick(message.artifact)}
-              />
-            ))
-          )}
-          {isLoading && (
-            <div className="flex justify-start mb-4">
-              <div className="bg-muted/50 border border-border rounded-2xl p-4 max-w-[80%]">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+            <PreferencesPanel
+              models={models || []}
+              prompts={prompts || []}
+              selectedModelId={selectedModelId}
+              selectedPromptId={selectedPromptId}
+              parameters={parameters}
+              onModelChange={setSelectedModelId}
+              onPromptChange={setSelectedPromptId}
+              onParametersChange={setParameters}
+              disabled={isLoading || modelsLoading || promptsLoading}
+            />
+          </div>
+        </div>
+
+        {/* Messages Container */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="max-w-md text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-primary font-bold text-xl">AI</span>
+                  </div>
+                  <h2 className="text-2xl font-semibold text-foreground">
+                    Welcome to AI Assistant
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Start a conversation by typing a message below. I'm here to help with any questions or tasks you have.
+                  </p>
+                  {modelsLoading && (
+                    <div className="flex items-center justify-center space-x-2 mt-4">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                      <span className="text-sm text-muted-foreground ml-2">Loading AI models...</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            ) : (
+              <>
+                {messages.map((message) => (
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    onArtifactClick={() => message.artifact && handleArtifactClick(message.artifact)}
+                  />
+                ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] bg-muted/50 border border-border rounded-2xl p-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <span className="text-sm text-muted-foreground ml-2">AI is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
-          <InputControls
-            models={models || []}
-            prompts={prompts || []}
-            selectedModelId={selectedModelId}
-            selectedPromptId={selectedPromptId}
-            onModelChange={setSelectedModelId}
-            onPromptChange={setSelectedPromptId}
-            disabled={isLoading || modelsLoading || promptsLoading}
-          />
-          <div className="flex items-end space-x-2">
-            <div className="flex-1 relative">
-              <Textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message here..."
-                className="min-h-[50px] lg:min-h-[60px] max-h-32 resize-none pr-20"
-                disabled={isLoading || modelsLoading || promptsLoading}
-              />
-              <div className="absolute right-2 bottom-2 flex space-x-1">
+        {/* Input Container */}
+        <div className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="px-6 py-4 space-y-3">
+            {/* Controls */}
+            <InputControls
+              models={models || []}
+              prompts={prompts || []}
+              selectedModelId={selectedModelId}
+              selectedPromptId={selectedPromptId}
+              onModelChange={setSelectedModelId}
+              onPromptChange={setSelectedPromptId}
+              disabled={isLoading || modelsLoading || promptsLoading}
+            />
+            
+            {/* Input Area */}
+            <div className="flex items-end space-x-3">
+              <div className="flex-1 relative">
+                <Textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
+                  className="min-h-[56px] max-h-32 resize-none pr-12 bg-background border-border focus:border-primary transition-colors"
+                  disabled={isLoading || modelsLoading || promptsLoading}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="absolute right-2 bottom-2 h-8 w-8 p-0 hover:bg-muted"
                   disabled={isLoading}
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
               </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading || modelsLoading || promptsLoading || !selectedModelId}
+                className="h-14 px-6 bg-primary hover:bg-primary/90 transition-colors"
+                size="lg"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
             </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoading || modelsLoading || promptsLoading || !selectedModelId}
-              className="h-[50px] lg:h-[60px] px-4 lg:px-6"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Artifact Preview */}
       {selectedArtifact && (
-        <ArtifactPreview
-          artifact={selectedArtifact}
-          onClose={closeArtifact}
-        />
+        <div className="w-1/2 border-l border-border">
+          <ArtifactPreview
+            artifact={selectedArtifact}
+            onClose={closeArtifact}
+          />
+        </div>
       )}
     </div>
   );

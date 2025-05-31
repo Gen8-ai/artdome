@@ -23,7 +23,7 @@ const ResponsiveLayout: React.FC<ResponsiveLayoutProps> = ({
         <SidebarInset className="flex-1">
           <header className="flex h-14 lg:h-16 items-center gap-2 px-4 border-b border-border/50 min-h-16">
             <SidebarTrigger className="-ml-1" />
-            <div className="flex-1 flex justify-center my-0 py-0 px-0 max-h-10">
+            <div className="flex-1 flex justify-center my-0 py-0 px-0 max-h-10 outline-none">
               <div className="w-64">
                 <ModelSelector models={models || []} selectedModelId={selectedModelId} onModelChange={setSelectedModelId} disabled={modelsLoading} />
               </div>

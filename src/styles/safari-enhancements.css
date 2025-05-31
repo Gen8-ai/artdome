@@ -1,0 +1,123 @@
+
+/* Safari-specific enhancements */
+
+/* Improved backdrop blur with fallbacks */
+.safari-backdrop {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  /* Fallback for older Safari versions */
+  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+}
+
+.safari-backdrop-strong {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+}
+
+/* Safari scrolling optimizations */
+.safari-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overflow-scrolling: touch;
+}
+
+/* Safari input optimizations */
+.safari-input {
+  -webkit-appearance: none;
+  -webkit-border-radius: 0;
+  border-radius: 0.75rem;
+  /* Prevent zoom on iOS */
+  font-size: 16px;
+  /* Better touch targets */
+  min-height: 44px;
+  /* Improved focus */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.safari-input:focus {
+  outline: none;
+  -webkit-box-shadow: 0 0 0 2px rgba(147, 51, 234, 0.5);
+  box-shadow: 0 0 0 2px rgba(147, 51, 234, 0.5);
+}
+
+/* Safari gradient optimizations */
+.safari-gradient-primary {
+  background: #8b5cf6;
+  background: -webkit-linear-gradient(45deg, #8b5cf6, #ec4899);
+  background: linear-gradient(45deg, #8b5cf6, #ec4899);
+}
+
+.safari-gradient-secondary {
+  background: #3b82f6;
+  background: -webkit-linear-gradient(45deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+}
+
+/* Safari animation optimizations */
+.safari-animate {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Safari text rendering */
+.safari-text {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Safari button optimizations */
+.safari-button {
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transform: translateZ(0);
+}
+
+.safari-button:active {
+  transform: translateZ(0) scale(0.98);
+}
+
+/* Safari message bubbles */
+.safari-message-bubble {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Safari viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  .safari-viewport-fix {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Safari code block improvements */
+.safari-code-block {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+/* Safari loading animation */
+.safari-pulse {
+  animation: safari-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes safari-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

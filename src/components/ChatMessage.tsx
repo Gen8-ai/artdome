@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -6,6 +5,7 @@ import { atomDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { User, Bot, Code2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import '../styles/safari-enhancements.css';
 
 interface Message {
   id: string;
@@ -38,22 +38,22 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
   };
 
   return (
-    <div className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4 safari-animate`}>
       <div className={`max-w-[80%] ${message.isUser ? 'order-2' : 'order-1'}`}>
         {/* Message Header */}
         <div className={`flex items-center space-x-2 mb-2 ${message.isUser ? 'justify-end' : 'justify-start'}`}>
           <div className={`flex items-center space-x-2 ${message.isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center safari-animate ${
               message.isUser 
-                ? 'bg-gradient-to-r from-blue-500 to-purple-500' 
-                : 'bg-gradient-to-r from-purple-500 to-pink-500'
+                ? 'safari-gradient-secondary' 
+                : 'safari-gradient-primary'
             }`}>
               {message.isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
             </div>
-            <div className="text-white/60 text-sm">
+            <div className="text-white/60 text-sm safari-text">
               {message.isUser ? 'You' : 'AI'} • {formatTime(message.timestamp)}
               {message.mode && !message.isUser && (
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs bg-gradient-to-r ${getModeColor(message.mode)} text-white`}>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs safari-gradient-primary text-white`}>
                   {message.mode}
                 </span>
               )}
@@ -62,12 +62,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
         </div>
 
         {/* Message Content */}
-        <div className={`backdrop-blur-xl border border-white/20 rounded-2xl p-4 ${
+        <div className={`safari-backdrop border border-white/20 rounded-2xl p-4 safari-message-bubble ${
           message.isUser 
-            ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 ml-4' 
-            : 'bg-white/10 mr-4'
+            ? 'ml-4' 
+            : 'mr-4'
         }`}>
-          <div className="text-white prose prose-invert max-w-none">
+          <div className="text-white prose prose-invert max-w-none safari-text">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -76,31 +76,37 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                   const isInline = !match;
                   
                   return !isInline ? (
-                    <SyntaxHighlighter
-                      style={atomDark}
-                      language={match[1]}
-                      PreTag="div"
-                      className="rounded-lg"
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
+                    <div className="safari-code-block">
+                      <SyntaxHighlighter
+                        style={atomDark}
+                        language={match[1]}
+                        PreTag="div"
+                        className="rounded-lg"
+                        customStyle={{
+                          background: 'rgba(0, 0, 0, 0.5)',
+                          WebkitOverflowScrolling: 'touch'
+                        }}
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    </div>
                   ) : (
-                    <code className="bg-white/20 px-1 py-0.5 rounded text-purple-200" {...props}>
+                    <code className="bg-white/20 px-1 py-0.5 rounded text-purple-200 safari-text" {...props}>
                       {children}
                     </code>
                   );
                 },
-                h1: ({ children }) => <h1 className="text-2xl font-bold text-white mb-4">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-xl font-bold text-white mb-3">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-lg font-bold text-white mb-2">{children}</h3>,
-                p: ({ children }) => <p className="text-white/90 mb-3 leading-relaxed">{children}</p>,
-                ul: ({ children }) => <ul className="text-white/90 mb-3 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="text-white/90 mb-3 space-y-1">{children}</ol>,
-                li: ({ children }) => <li className="text-white/90">{children}</li>,
-                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                em: ({ children }) => <em className="text-purple-200">{children}</em>,
+                h1: ({ children }) => <h1 className="text-2xl font-bold text-white mb-4 safari-text">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-xl font-bold text-white mb-3 safari-text">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-lg font-bold text-white mb-2 safari-text">{children}</h3>,
+                p: ({ children }) => <p className="text-white/90 mb-3 leading-relaxed safari-text">{children}</p>,
+                ul: ({ children }) => <ul className="text-white/90 mb-3 space-y-1 safari-text">{children}</ul>,
+                ol: ({ children }) => <ol className="text-white/90 mb-3 space-y-1 safari-text">{children}</ol>,
+                li: ({ children }) => <li className="text-white/90 safari-text">{children}</li>,
+                strong: ({ children }) => <strong className="text-white font-semibold safari-text">{children}</strong>,
+                em: ({ children }) => <em className="text-purple-200 safari-text">{children}</em>,
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-purple-400 pl-4 italic text-white/80 bg-white/5 rounded-r-lg py-2">
+                  <blockquote className="border-l-4 border-purple-400 pl-4 italic text-white/80 bg-white/5 rounded-r-lg py-2 safari-text">
                     {children}
                   </blockquote>
                 ),
@@ -115,7 +121,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
             <div className="mt-4 pt-4 border-t border-white/20">
               <Button
                 onClick={onArtifactClick}
-                className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                className="flex items-center space-x-2 safari-gradient-primary hover:opacity-90 text-white safari-button safari-animate"
               >
                 <Eye className="w-4 h-4" />
                 <span>View Artifact</span>

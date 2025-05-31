@@ -16,11 +16,10 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   const [isCodeView, setIsCodeView] = useState(false);
   const { toast } = useToast();
 
-  const { extractedCode, reactComponents, setReactComponents } = useCodeExtraction(content);
+  const { extractedContent, reactComponents, setReactComponents } = useCodeExtraction(content);
 
-  const currentCode = extractedCode[currentPage] || '';
-  const currentReactCode = reactComponents[currentPage] || '';
-  const isReactComponent = currentReactCode.length > 0;
+  const currentContent = extractedContent[currentPage];
+  const isReactComponent = currentContent?.type === 'react';
 
   const handleRefresh = () => {
     // Refresh logic handled by content component
@@ -28,7 +27,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(currentCode);
+      await navigator.clipboard.writeText(currentContent?.code || '');
       toast({
         title: "Copied!",
         description: "Code copied to clipboard",
@@ -43,11 +42,19 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([currentCode], { type: 'text/html' });
+    if (!currentContent) return;
+    
+    const blob = new Blob([currentContent.code], { 
+      type: currentContent.type === 'html' ? 'text/html' : 'text/plain' 
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rendered-code-${currentPage + 1}.html`;
+    
+    const extension = currentContent.type === 'html' ? 'html' : 
+                     currentContent.type === 'react' ? 'jsx' : 'txt';
+    a.download = `${currentContent.title?.toLowerCase().replace(/\s+/g, '-') || 'content'}.${extension}`;
+    
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -59,7 +66,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   };
 
   const nextPage = () => {
-    if (currentPage < extractedCode.length - 1) {
+    if (currentPage < extractedContent.length - 1) {
       setCurrentPage(currentPage + 1);
     }
   };
@@ -71,10 +78,25 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
   };
 
   const handleCodeUpdate = (newCode: string) => {
-    const newReactComponents = [...reactComponents];
-    newReactComponents[currentPage] = newCode;
-    setReactComponents(newReactComponents);
+    if (isReactComponent) {
+      const newReactComponents = [...reactComponents];
+      newReactComponents[currentPage] = newCode;
+      setReactComponents(newReactComponents);
+    }
   };
+
+  if (!currentContent) {
+    return (
+      <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : 'p-4'}`}>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">No renderable content found</h2>
+            <p className="text-muted-foreground">The message doesn't contain any HTML, React, Canvas, or Artifact content.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`fixed inset-0 bg-background z-50 flex flex-col ${isFullscreen ? 'p-0' : 'p-4'}`}>
@@ -85,7 +107,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
         isCodeView={isCodeView}
         onToggleCodeView={() => setIsCodeView(!isCodeView)}
         currentPage={currentPage}
-        totalPages={extractedCode.length}
+        totalPages={extractedContent.length}
         onPrevPage={prevPage}
         onNextPage={nextPage}
         onRefresh={handleRefresh}
@@ -97,9 +119,7 @@ const HtmlRenderer: React.FC<HtmlRendererProps> = ({ content, onClose }) => {
       <div className="flex-1 overflow-hidden">
         <HtmlRendererContent
           isCodeView={isCodeView}
-          isReactComponent={isReactComponent}
-          currentCode={currentCode}
-          currentReactCode={currentReactCode}
+          currentContent={currentContent}
           currentPage={currentPage}
           onCodeUpdate={handleCodeUpdate}
           onRefresh={handleRefresh}

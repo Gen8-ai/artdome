@@ -45,6 +45,11 @@ const HtmlRendererToolbar: React.FC<HtmlRendererToolbarProps> = ({
   onDownload,
   isReactComponent
 }) => {
+  const getRendererTitle = () => {
+    if (isReactComponent) return 'React Component Renderer';
+    return 'Universal Content Renderer';
+  };
+
   return (
     <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur">
       <div className="flex items-center space-x-2">
@@ -52,7 +57,7 @@ const HtmlRendererToolbar: React.FC<HtmlRendererToolbarProps> = ({
           <X className="w-4 h-4" />
         </Button>
         <div className="text-sm font-medium">
-          {isReactComponent ? 'React Component Renderer' : 'HTML Renderer'}
+          {getRendererTitle()}
         </div>
         {totalPages > 1 && (
           <div className="text-xs text-muted-foreground">

@@ -250,8 +250,6 @@ const ContentRenderer: React.FC<ContentRendererProps> = ({ content, onClose }) =
             block={currentBlock}
             options={{
               theme: 'light',
-              enableConsoleCapture: true,
-              enableErrorBoundary: true,
               useCompilation: true
             }}
             onCompilationStart={() => setIsCompiling(true)}

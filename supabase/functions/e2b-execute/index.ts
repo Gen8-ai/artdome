@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Sandbox } from "npm:@e2b/code-interpreter@^1.5.0";
 
@@ -14,6 +13,7 @@ interface ExecutionRequest {
   timeout?: number;
   enableFileSystem?: boolean;
   setupDevEnvironment?: boolean;
+  enableAIBugFixing?: boolean;
 }
 
 interface ExecutionResult {
@@ -28,6 +28,14 @@ interface ExecutionResult {
     uptime: number;
     memoryUsage?: number;
   };
+  aiBugFix?: {
+    fixedCode: string;
+    issuesFound: string[];
+    fixesApplied: string[];
+    confidence: number;
+    executionTime: number;
+  };
+  wasAutoFixed: boolean;
 }
 
 interface FileInfo {
@@ -122,7 +130,8 @@ serve(async (req) => {
       packages = [], 
       timeout = 30000, 
       enableFileSystem = false,
-      setupDevEnvironment = false 
+      setupDevEnvironment = false,
+      enableAIBugFixing = false
     }: ExecutionRequest = await req.json();
     
     if (!code) {
@@ -137,8 +146,25 @@ serve(async (req) => {
     }
 
     logs.push(`Starting E2B execution for ${language} code...`);
-    logs.push(`Packages to install: ${packages.join(', ') || 'none'}`);
-    logs.push(`Development environment setup: ${setupDevEnvironment ? 'enabled' : 'disabled'}`);
+    logs.push(`AI Bug Fixing: ${enableAIBugFixing ? 'enabled' : 'disabled'}`);
+
+    let processedCode = code;
+    let aiBugFixResult = null;
+
+    // AI Bug Fixing preprocessing
+    if (enableAIBugFixing) {
+      logs.push('Running AI bug analysis...');
+      try {
+        aiBugFixResult = await performAIBugFixing(code, language);
+        if (aiBugFixResult?.success && aiBugFixResult?.confidence > 0.5) {
+          processedCode = aiBugFixResult.fixedCode;
+          logs.push(`AI applied ${aiBugFixResult.fixesApplied?.length || 0} fixes`);
+        }
+      } catch (error) {
+        logs.push(`AI bug fixing failed: ${error}`);
+        // Continue with original code
+      }
+    }
 
     // Create sandbox with enhanced configuration
     try {
@@ -211,17 +237,36 @@ serve(async (req) => {
     }
 
     // Execute the main code with enhanced error handling
-    logs.push('Executing user code...');
+    logs.push('Executing processed code...');
     let execution;
     
     try {
-      execution = await sandbox.runCode(code, {
+      execution = await sandbox.runCode(processedCode, {
         onStderr: (stderr) => logs.push(`STDERR: ${stderr.line}`),
         onStdout: (stdout) => logs.push(`STDOUT: ${stdout.line}`)
       });
     } catch (error) {
-      const errorDetail = E2BErrorHandler.categorizeError(error);
-      throw new Error(`Code execution failed: ${E2BErrorHandler.formatError(errorDetail)}`);
+      // If execution fails and AI bug fixing is enabled, try emergency fix
+      if (enableAIBugFixing && !aiBugFixResult) {
+        logs.push('Execution failed, attempting emergency AI fix...');
+        try {
+          const emergencyFix = await performAIBugFixing(code, language, error.message);
+          if (emergencyFix?.success) {
+            logs.push('Emergency fix applied, retrying...');
+            execution = await sandbox.runCode(emergencyFix.fixedCode, {
+              onStderr: (stderr) => logs.push(`RETRY STDERR: ${stderr.line}`),
+              onStdout: (stdout) => logs.push(`RETRY STDOUT: ${stdout.line}`)
+            });
+            aiBugFixResult = emergencyFix;
+            processedCode = emergencyFix.fixedCode;
+          }
+        } catch (fixError) {
+          logs.push(`Emergency fix failed: ${fixError}`);
+          throw error; // Re-throw original error
+        }
+      } else {
+        throw error;
+      }
     }
 
     const executionTime = Date.now() - startTime;
@@ -239,7 +284,9 @@ serve(async (req) => {
         sandboxInfo: {
           id: sandbox.sandboxId,
           uptime: executionTime
-        }
+        },
+        aiBugFix: aiBugFixResult,
+        wasAutoFixed: aiBugFixResult?.success || false
       };
 
       return new Response(JSON.stringify(result), {
@@ -292,7 +339,9 @@ serve(async (req) => {
       executionTime,
       files,
       logs,
-      sandboxInfo
+      sandboxInfo,
+      aiBugFix: aiBugFixResult,
+      wasAutoFixed: aiBugFixResult?.success || false
     };
 
     return new Response(JSON.stringify(result), {
@@ -333,6 +382,94 @@ serve(async (req) => {
     }
   }
 });
+
+async function performAIBugFixing(code: string, language: string, errorMessage?: string): Promise<any> {
+  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not configured for AI bug fixing');
+  }
+
+  const fixPrompt = `Fix all bugs and syntax errors in this ${language} code:
+
+CODE:
+${code}
+
+${errorMessage ? `ERROR: ${errorMessage}` : ''}
+
+Please provide:
+1. The complete fixed code
+2. List of issues found
+3. List of fixes applied
+
+Respond in JSON format:
+{
+  "fixedCode": "...",
+  "issuesFound": ["..."],
+  "fixesApplied": ["..."],
+  "confidence": 0.8
+}`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert ${language} developer. Fix code issues while maintaining original functionality.`
+          },
+          {
+            role: 'user',
+            content: fixPrompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      }),
+    });
+
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
+
+    try {
+      const parsed = JSON.parse(aiResponse);
+      return {
+        success: true,
+        fixedCode: parsed.fixedCode || code,
+        issuesFound: parsed.issuesFound || [],
+        fixesApplied: parsed.fixesApplied || [],
+        confidence: parsed.confidence || 0.6,
+        executionTime: 0
+      };
+    } catch (parseError) {
+      // Fallback: extract code from response
+      const codeMatch = aiResponse.match(/```(?:javascript|python|typescript)?\n([\s\S]*?)\n```/);
+      return {
+        success: true,
+        fixedCode: codeMatch ? codeMatch[1] : code,
+        issuesFound: ['Parsing issues detected'],
+        fixesApplied: ['AI auto-fix applied'],
+        confidence: 0.5,
+        executionTime: 0
+      };
+    }
+  } catch (error) {
+    console.error('AI bug fixing error:', error);
+    return {
+      success: false,
+      fixedCode: code,
+      issuesFound: [error.message],
+      fixesApplied: [],
+      confidence: 0,
+      executionTime: 0
+    };
+  }
+}
 
 function getDevEnvironmentSetup(language: string, additionalPackages: string[] = []): string {
   const common = `

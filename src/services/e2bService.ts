@@ -188,6 +188,102 @@ console.log("✓ Created ${filename}");`;
     }
   }
 
+  async executeWithAIBugFixing(
+    code: string,
+    language: string = 'python',
+    packages: string[] = []
+  ): Promise<ExecutionResult & { aiBugFix?: any; wasAutoFixed?: boolean }> {
+    try {
+      console.log('Executing with AI bug fixing enabled...');
+
+      const { data, error } = await supabase.functions.invoke('e2b-execute', {
+        body: {
+          code,
+          language,
+          packages,
+          enableFileSystem: true,
+          setupDevEnvironment: true,
+          enableAIBugFixing: true,
+          timeout: 90000 // Extra time for AI processing
+        }
+      });
+
+      if (error) {
+        const e2bError = this.createE2BError('execution', error.message, 'AI bug fixing failed to resolve the issue');
+        this.recordError(e2bError);
+        throw new Error(`AI-enhanced execution failed: ${error.message}`);
+      }
+
+      const result = data as ExecutionResult & { aiBugFix?: any; wasAutoFixed?: boolean };
+      
+      // Log AI bug fixing results
+      if (result.aiBugFix) {
+        console.log('AI Bug Fix Results:', {
+          wasAutoFixed: result.wasAutoFixed,
+          issuesFound: result.aiBugFix.issuesFound?.length || 0,
+          fixesApplied: result.aiBugFix.fixesApplied?.length || 0,
+          confidence: result.aiBugFix.confidence
+        });
+      }
+
+      this.recordExecution('ai-enhanced', result);
+      return result;
+
+    } catch (error) {
+      console.error('AI-enhanced execution error:', error);
+      
+      const e2bError = this.createE2BError(
+        'execution',
+        error instanceof Error ? error.message : 'AI bug fixing execution failed',
+        'Check code syntax and try manual debugging'
+      );
+      this.recordError(e2bError);
+      
+      return {
+        success: false,
+        output: '',
+        error: e2bError.details,
+        executionTime: 0,
+        logs: [`AI-enhanced execution error: ${error}`],
+        wasAutoFixed: false
+      };
+    }
+  }
+
+  async analyzeCodeForBugs(code: string, language: string = 'python'): Promise<any> {
+    try {
+      // Import the AI bug fixer
+      const { aiBugFixer } = await import('../utils/contentRenderer/aiBugFixer');
+      return await aiBugFixer.analyzeCode(code, language);
+    } catch (error) {
+      console.error('Code analysis error:', error);
+      return {
+        syntaxErrors: [],
+        runtimeErrors: [],
+        logicIssues: ['Analysis failed'],
+        suggestions: ['Try manual code review'],
+        severity: 'unknown'
+      };
+    }
+  }
+
+  async getAIFixSuggestions(code: string, language: string = 'python', errorMessage?: string): Promise<any> {
+    try {
+      const { aiBugFixer } = await import('../utils/contentRenderer/aiBugFixer');
+      return await aiBugFixer.fixAndValidate(code, language, errorMessage);
+    } catch (error) {
+      console.error('AI fix suggestions error:', error);
+      return {
+        success: false,
+        fixedCode: code,
+        issuesFound: ['AI fixing unavailable'],
+        fixesApplied: [],
+        confidence: 0,
+        executionTime: 0
+      };
+    }
+  }
+
   async createDevelopmentSandbox(language: string): Promise<string> {
     const sandboxCode = this.getDevSandboxSetupCode(language);
     

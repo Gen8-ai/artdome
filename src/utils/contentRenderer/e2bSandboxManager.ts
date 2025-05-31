@@ -1,6 +1,6 @@
-
 import { e2bExecutor } from './e2bExecutor';
 import { E2BConfig, SupportedLanguage } from './e2bConfig';
+import { aiBugFixer, BugFixResult } from './aiBugFixer';
 
 export interface SandboxEnvironment {
   id: string;
@@ -23,6 +23,7 @@ export class E2BSandboxManager {
   private static instance: E2BSandboxManager;
   private activeSandboxes = new Map<string, SandboxEnvironment>();
   private devToolsConfigs = new Map<string, DevToolsConfig>();
+  private aiBugFixEnabled = true; // Enable AI bug fixing by default
 
   static getInstance(): E2BSandboxManager {
     if (!E2BSandboxManager.instance) {
@@ -235,6 +236,18 @@ console.log("Node.js development environment ready!");
     try {
       const devConfig = this.devToolsConfigs.get(sandboxId);
       let processedCode = code;
+      let bugFixResult: BugFixResult | null = null;
+
+      // Apply AI bug fixing if enabled
+      if (this.aiBugFixEnabled) {
+        console.log('Running AI bug analysis and fixing...');
+        bugFixResult = await aiBugFixer.fixAndValidate(code, sandbox.language);
+        
+        if (bugFixResult.success && bugFixResult.confidence > 0.5) {
+          processedCode = bugFixResult.fixedCode;
+          console.log(`AI bug fixer applied ${bugFixResult.fixesApplied.length} fixes`);
+        }
+      }
 
       // Apply linting and formatting if enabled
       if (devConfig?.enableLinting) {
@@ -252,15 +265,63 @@ console.log("Node.js development environment ready!");
         enableFileSystem: true
       });
 
+      // If execution failed and we haven't tried AI fixing yet, try it now
+      if (!result.success && !bugFixResult && this.aiBugFixEnabled) {
+        console.log('Execution failed, attempting AI bug fix...');
+        const emergencyFix = await aiBugFixer.fixAndValidate(code, sandbox.language, result.error);
+        
+        if (emergencyFix.success && emergencyFix.confidence > 0.3) {
+          console.log('Emergency AI fix applied, retrying execution...');
+          const retryResult = await e2bExecutor.executeCode(emergencyFix.fixedCode, {
+            language: sandbox.language,
+            timeout: 60000,
+            enableFileSystem: true
+          });
+          
+          return {
+            ...retryResult,
+            sandboxId,
+            environment: sandbox,
+            formattedCode: emergencyFix.fixedCode,
+            aiBugFix: emergencyFix,
+            wasAutoFixed: true
+          };
+        }
+      }
+
       return {
         ...result,
         sandboxId,
         environment: sandbox,
-        formattedCode: processedCode
+        formattedCode: processedCode,
+        aiBugFix: bugFixResult,
+        wasAutoFixed: bugFixResult?.success || false
       };
 
     } catch (error) {
       console.error(`Execution error in sandbox ${sandboxId}:`, error);
+      
+      // Last resort: try AI bug fixing on the error
+      if (this.aiBugFixEnabled) {
+        try {
+          const errorFix = await aiBugFixer.fixBugs(code, sandbox.language, error instanceof Error ? error.message : String(error));
+          if (errorFix.success) {
+            return {
+              success: false,
+              output: '',
+              error: `Original execution failed, but AI provided a potential fix. Try the suggested code.`,
+              sandboxId,
+              environment: sandbox,
+              formattedCode: errorFix.fixedCode,
+              aiBugFix: errorFix,
+              wasAutoFixed: false
+            };
+          }
+        } catch (fixError) {
+          console.error('AI bug fixing also failed:', fixError);
+        }
+      }
+      
       throw error;
     }
   }
@@ -333,6 +394,27 @@ console.log("Node.js development environment ready!");
     for (const sandboxId of sandboxesToCleanup) {
       await this.destroySandbox(sandboxId);
     }
+  }
+
+  async enableAIBugFixing(sandboxId: string, enabled: boolean = true): Promise<void> {
+    this.aiBugFixEnabled = enabled;
+    console.log(`AI bug fixing ${enabled ? 'enabled' : 'disabled'} for sandbox ${sandboxId}`);
+  }
+
+  async getAIFixSuggestions(sandboxId: string, code: string): Promise<BugFixResult> {
+    const sandbox = this.activeSandboxes.get(sandboxId);
+    if (!sandbox) {
+      throw new Error(`Sandbox ${sandboxId} not found`);
+    }
+
+    return await aiBugFixer.analyzeCode(code, sandbox.language).then(analysis => ({
+      success: true,
+      fixedCode: code,
+      issuesFound: [...analysis.syntaxErrors, ...analysis.runtimeErrors, ...analysis.logicIssues],
+      fixesApplied: analysis.suggestions,
+      confidence: analysis.severity === 'low' ? 0.8 : analysis.severity === 'medium' ? 0.6 : 0.4,
+      executionTime: 0
+    }));
   }
 }
 

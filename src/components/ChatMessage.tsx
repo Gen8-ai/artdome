@@ -71,9 +71,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code({ node, inline, className, children, ...props }) {
+                code({ className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '');
-                  return !inline && match ? (
+                  const isInline = !match;
+                  
+                  return !isInline ? (
                     <SyntaxHighlighter
                       style={atomDark}
                       language={match[1]}

@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark, prism } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Code2, Eye } from 'lucide-react';
+import { User, Bot, Code2, Eye, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -21,15 +21,28 @@ interface Message {
 interface ChatMessageProps {
   message: Message;
   onArtifactClick?: () => void;
+  onHtmlRender?: (content: string) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick, onHtmlRender }) => {
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const isDarkMode = document.documentElement.classList.contains('dark');
   const isUser = message.role === 'user';
+
+  // Check if message contains code blocks that could be rendered
+  const hasRenderableCode = message.content.includes('```html') || 
+                           message.content.includes('```jsx') || 
+                           message.content.includes('```css') ||
+                           message.content.includes('```javascript');
+
+  const handleHtmlRender = () => {
+    if (onHtmlRender) {
+      onHtmlRender(message.content);
+    }
+  };
 
   return (
     <div className={`flex group w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -148,19 +161,32 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
               </ReactMarkdown>
             </div>
 
-            {/* Artifact Button */}
-            {message.artifact && (
-              <div className="mt-4 pt-4 border-t border-border/20">
-                <Button
-                  onClick={onArtifactClick}
-                  variant={isUser ? "secondary" : "outline"}
-                  size="sm"
-                  className="flex items-center space-x-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>View Artifact</span>
-                  <Code2 className="w-4 h-4" />
-                </Button>
+            {/* Action Buttons */}
+            {(message.artifact || hasRenderableCode) && (
+              <div className="mt-4 pt-4 border-t border-border/20 flex gap-2 flex-wrap">
+                {message.artifact && (
+                  <Button
+                    onClick={onArtifactClick}
+                    variant={isUser ? "secondary" : "outline"}
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>View Artifact</span>
+                    <Code2 className="w-4 h-4" />
+                  </Button>
+                )}
+                {hasRenderableCode && !isUser && (
+                  <Button
+                    onClick={handleHtmlRender}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Render HTML</span>
+                  </Button>
+                )}
               </div>
             )}
           </div>

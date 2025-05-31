@@ -209,14 +209,13 @@ export class ContentRenderer {
     const tailwindCSS = includeTailwind ? this.getTailwindCSS() : '';
     const themeClasses = theme === 'dark' ? 'dark' : '';
 
-    // CRITICAL: Always use JSON.stringify for ALL code injection to prevent syntax errors
-    const safeCode = JSON.stringify(code);
+    // Safely escape code for injection
+    const safeCode = this.escapeForScript(code);
     
     // Pre-compute component detection safely
     const componentPattern = /(?:function|const)\s+([A-Z]\w*)\s*[=(]/;
     const componentMatch = code.match(componentPattern);
     const potentialComponentName = componentMatch ? componentMatch[1] : null;
-    const safeComponentName = JSON.stringify(potentialComponentName);
 
     return `<!DOCTYPE html>
 <html lang="en" class="${themeClasses}">
@@ -425,13 +424,11 @@ export class ContentRenderer {
           throw new Error('React dependencies not loaded');
         }
         
-        // Execute user code safely using JSON.stringify escaped content
-        const userCode = ${safeCode};
+        // Execute user code safely using properly escaped content
         console.log('Executing user code...');
         
-        // Use Function constructor for safer code execution
-        const executeCode = new Function('React', 'ReactDOM', userCode);
-        executeCode(React, ReactDOM);
+        // Use eval with the escaped code directly (no Function constructor needed)
+        ${safeCode}
         
         // Auto-detect and render component
         const rootElement = document.getElementById('root');
@@ -442,8 +439,8 @@ export class ContentRenderer {
           ComponentToRender = App;
         } else if (typeof Component !== 'undefined') {
           ComponentToRender = Component;
-        } else if (${safeComponentName} && typeof window[${safeComponentName}] !== 'undefined') {
-          ComponentToRender = window[${safeComponentName}];
+        } else if (${potentialComponentName ? `typeof ${potentialComponentName} !== 'undefined'` : 'false'}) {
+          ComponentToRender = ${potentialComponentName || 'null'};
         } else {
           // Scan global scope for React components
           const globalNames = Object.getOwnPropertyNames(window);
@@ -499,8 +496,7 @@ export class ContentRenderer {
   ${type === 'javascript' ? `
     <script>
       try {
-        const userCode = ${safeCode};
-        eval(userCode);
+        ${safeCode}
       } catch (error) {
         console.error('JavaScript execution error:', error);
         document.getElementById('root').innerHTML = \`
@@ -521,6 +517,20 @@ export class ContentRenderer {
   ` : ''}
 </body>
 </html>`;
+  }
+
+  private escapeForScript(code: string): string {
+    // Properly escape code for safe injection into script tags
+    return code
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t')
+      .replace(/</g, '\\x3C')
+      .replace(/>/g, '\\x3E')
+      .replace(/\//g, '\\/');
   }
 
   private escapeHtml(text: string): string {

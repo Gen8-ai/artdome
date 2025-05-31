@@ -77,7 +77,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onArtifactClick }) =
                   
                   return !isInline ? (
                     <SyntaxHighlighter
-                      style={atomDark}
+                      style={atomDark as any}
                       language={match[1]}
                       PreTag="div"
                       className="rounded-lg"

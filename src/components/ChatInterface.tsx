@@ -40,33 +40,19 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
-  const promptButtons = [
-    {
-      id: 'code',
-      label: 'Code Prompt',
-      category: 'interact'
-    },
-    {
-      id: 'creative',
-      label: 'Creative Writing',
-      category: 'story'
-    },
-    {
-      id: 'research',
-      label: 'Research',
-      category: 'search'
-    }
-  ];
-
-  const handlePromptSelect = (category: string) => {
-    const prompt = prompts?.find(p => p.category === category);
-    if (prompt) {
-      setSelectedPromptId(prompt.id);
-    }
+  // Filter prompts to show main categories
+  const getPromptsByCategory = (category: string) => {
+    return prompts?.filter(p => p.category === category && (p.is_public || p.user_id === user?.id)) || [];
   };
 
-  const handleGeneralPrompt = () => {
-    setSelectedPromptId('');
+  const handlePromptSelect = (promptId: string) => {
+    setSelectedPromptId(promptId);
+    
+    // Find the selected prompt and set its content as a starting message
+    const selectedPrompt = prompts?.find(p => p.id === promptId);
+    if (selectedPrompt) {
+      console.log('Selected prompt:', selectedPrompt.name, selectedPrompt.content);
+    }
   };
 
   const sendMessage = async () => {
@@ -84,13 +70,18 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
+      // Get the selected prompt content for system message
+      const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
+      const systemPrompt = selectedPrompt?.content;
+
       const { data, error } = await supabase.functions.invoke('openai-chat', {
         body: {
           messages: [...messages, userMessage].map(msg => ({
             role: msg.role,
             content: msg.content,
           })),
-          model: selectedModelId || 'gpt-4o-mini',
+          model: selectedModelId || 'gpt-4o',
+          systemPrompt,
           ...parameters,
         },
       });
@@ -164,23 +155,54 @@ const ChatInterface = () => {
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto p-4">
           <div className="space-y-3">
-            {/* System Prompt Buttons */}
+            {/* Dynamic Prompt Buttons from Supabase */}
             <div className="flex flex-wrap gap-1">
-              {promptButtons.map((button) => {
-                const isSelected = prompts?.find(p => p.category === button.category)?.id === selectedPromptId;
-                
-                return (
+              {!promptsLoading && prompts && (
+                <>
+                  {/* Show prompts from different categories */}
+                  {getPromptsByCategory('interact').slice(0, 2).map((prompt) => (
+                    <Button
+                      key={prompt.id}
+                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
+                      onClick={() => handlePromptSelect(prompt.id)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {prompt.name}
+                    </Button>
+                  ))}
+                  {getPromptsByCategory('story').slice(0, 2).map((prompt) => (
+                    <Button
+                      key={prompt.id}
+                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
+                      onClick={() => handlePromptSelect(prompt.id)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {prompt.name}
+                    </Button>
+                  ))}
+                  {getPromptsByCategory('search').slice(0, 2).map((prompt) => (
+                    <Button
+                      key={prompt.id}
+                      variant={selectedPromptId === prompt.id ? "default" : "outline"}
+                      onClick={() => handlePromptSelect(prompt.id)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {prompt.name}
+                    </Button>
+                  ))}
+                  {/* General/No prompt button */}
                   <Button
-                    key={button.id}
-                    variant={isSelected ? "default" : "outline"}
-                    onClick={() => handlePromptSelect(button.category)}
+                    variant={!selectedPromptId ? "default" : "outline"}
+                    onClick={() => setSelectedPromptId('')}
                     className="h-6 px-2 text-xs"
-                    disabled={promptsLoading}
                   >
-                    {button.label}
+                    General
                   </Button>
-                );
-              })}
+                </>
+              )}
+              {promptsLoading && (
+                <div className="text-xs text-muted-foreground">Loading prompts...</div>
+              )}
             </div>
             
             {/* Input Container */}

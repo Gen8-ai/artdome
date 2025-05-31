@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Bot, Settings, User, LogOut, Sliders } from 'lucide-react';
+import { Bot, Settings, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -22,6 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 import PreferencesPanel from './PreferencesPanel';
+import ConversationList from './ConversationList';
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
@@ -64,6 +66,8 @@ const AppSidebar = () => {
             </SidebarMenuItem>
           </SidebarMenu>
         </div>
+
+        <ConversationList />
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">

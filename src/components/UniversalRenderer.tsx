@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
 import { pipelineManager } from '@/utils/pipelineManager';
@@ -341,7 +342,12 @@ function detectLanguage(type?: string, code?: string): string {
 async function renderArtifactContentWithAI(block: ContentBlock): Promise<string> {
   try {
     // First attempt normal rendering
-    return await renderArtifactContent(block);
+    return await contentRenderer.generateHtmlDocument(block, {
+      useCompilation: true,
+      includeTailwind: true,
+      includeLucideIcons: true,
+      includeShadcnUI: true
+    });
   } catch (error) {
     console.log('Artifact rendering failed, attempting AI fix...');
     
@@ -354,7 +360,12 @@ async function renderArtifactContentWithAI(block: ContentBlock): Promise<string>
       
       if (fixResult.success) {
         const fixedBlock = { ...block, code: fixResult.fixedCode };
-        return await renderArtifactContent(fixedBlock);
+        return await contentRenderer.generateHtmlDocument(fixedBlock, {
+          useCompilation: true,
+          includeTailwind: true,
+          includeLucideIcons: true,
+          includeShadcnUI: true
+        });
       }
     } catch (fixError) {
       console.error('AI fix failed:', fixError);

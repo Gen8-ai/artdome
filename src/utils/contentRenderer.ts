@@ -1,3 +1,4 @@
+
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -13,10 +14,10 @@ import { packageResolver } from './contentRenderer/packageResolver';
 import { packageInstaller } from './contentRenderer/packageInstaller';
 import { supabasePersistence } from './contentRenderer/supabasePersistence';
 import { realtimePreview } from './contentRenderer/realtimePreview';
-import { buildOptimizer } from './buildOptimizer';
-import { errorBoundaryManager } from './errorBoundary';
-import { e2bIntegration, E2BRenderResult } from './e2bIntegration';
-import { aiBugFixer } from './aiBugFixer';
+import { buildOptimizer } from './contentRenderer/buildOptimizer';
+import { errorBoundaryManager } from './contentRenderer/errorBoundary';
+import { e2bIntegration, E2BRenderResult } from './contentRenderer/e2bIntegration';
+import { aiBugFixer } from './contentRenderer/aiBugFixer';
 
 export type { ContentBlock, RenderingOptions } from './contentRenderer/types';
 
@@ -245,7 +246,7 @@ export class ContentRenderer {
       }
 
       // Validate module imports
-      const { moduleImportValidator } = await import('./moduleImportValidator');
+      const { moduleImportValidator } = await import('./contentRenderer/moduleImportValidator');
       
       const moduleValidation = moduleImportValidator.validateCode(processedBlock.code);
       if (!moduleValidation.isValid) {

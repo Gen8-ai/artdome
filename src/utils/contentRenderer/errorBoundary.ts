@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AIService, ErrorSuggestion } from '@/services/ai/aiService';
 import { e2bService } from '@/services/e2bService';
+import { aiBugFixer } from './aiBugFixer';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -173,8 +174,50 @@ export class ErrorBoundaryManager {
   }
 
   async generateErrorSuggestions(error: Error, code?: string): Promise<ErrorSuggestion[]> {
+    // First try integrated AI bug fixer
+    if (code) {
+      try {
+        console.log('Using integrated AI bug fixer for error suggestions...');
+        const language = this.detectLanguage(code);
+        const analysis = await aiBugFixer.analyzeCode(code, language);
+        
+        // Convert AI bug fixer analysis to error suggestions
+        const suggestions: ErrorSuggestion[] = [];
+        
+        if (analysis.syntaxErrors.length > 0) {
+          suggestions.push({
+            type: 'syntax',
+            description: `Syntax errors found: ${analysis.syntaxErrors.join(', ')}`,
+            confidence: 0.9
+          });
+        }
+        
+        if (analysis.runtimeErrors.length > 0) {
+          suggestions.push({
+            type: 'runtime',
+            description: `Runtime errors detected: ${analysis.runtimeErrors.join(', ')}`,
+            confidence: 0.8
+          });
+        }
+        
+        if (analysis.suggestions.length > 0) {
+          suggestions.push(...analysis.suggestions.map(suggestion => ({
+            type: 'logic' as const,
+            description: suggestion,
+            confidence: 0.7
+          })));
+        }
+        
+        if (suggestions.length > 0) {
+          return suggestions;
+        }
+      } catch (bugFixerError) {
+        console.warn('AI bug fixer failed, falling back to AI service:', bugFixerError);
+      }
+    }
+
+    // Fallback to existing AI service
     if (!this.aiService) {
-      // Check if it's an E2B error and provide specific suggestions
       const isE2BError = this.isE2BRelatedError(error.message);
       if (isE2BError) {
         return this.generateE2BSpecificSuggestions(error.message);
@@ -188,7 +231,6 @@ export class ErrorBoundaryManager {
     }
 
     try {
-      // Enhanced error analysis with E2B context
       let enhancedErrorMessage = error.message;
       const isE2BError = this.isE2BRelatedError(error.message);
       
@@ -199,7 +241,6 @@ export class ErrorBoundaryManager {
       
       const suggestions = await this.aiService.generateErrorSuggestions(enhancedErrorMessage, code);
       
-      // Add E2B-specific suggestions if relevant
       if (isE2BError) {
         const e2bSuggestions = this.generateE2BSpecificSuggestions(error.message);
         return [...suggestions, ...e2bSuggestions];
@@ -214,6 +255,48 @@ export class ErrorBoundaryManager {
         confidence: 0.1
       }];
     }
+  }
+
+  async attemptAutoRecovery(error: Error, code: string): Promise<string | null> {
+    // First try integrated AI bug fixer
+    try {
+      console.log('Attempting auto-recovery with integrated AI bug fixer...');
+      const language = this.detectLanguage(code);
+      const fixResult = await aiBugFixer.fixBugs(code, language, error.message);
+      
+      if (fixResult.success && fixResult.confidence > 0.6) {
+        console.log('AI bug fixer auto-recovery successful');
+        return fixResult.fixedCode;
+      }
+    } catch (bugFixerError) {
+      console.warn('AI bug fixer auto-recovery failed, trying fallback:', bugFixerError);
+    }
+
+    // Fallback to existing AI service
+    if (!this.aiService) {
+      return this.attemptE2BAutoRecovery(error.message, code);
+    }
+
+    try {
+      const fixedCode = await this.aiService.fixCode(code, error.message);
+      return fixedCode;
+    } catch (err) {
+      console.error('Auto-recovery failed:', err);
+      return this.attemptE2BAutoRecovery(error.message, code);
+    }
+  }
+
+  private detectLanguage(code: string): string {
+    if (code.includes('React') || code.includes('jsx') || code.includes('useState')) {
+      return 'javascript';
+    }
+    if (code.includes('def ') || code.includes('import ')) {
+      return 'python';
+    }
+    if (code.includes('<html') || code.includes('<!DOCTYPE')) {
+      return 'html';
+    }
+    return 'javascript'; // default
   }
 
   private generateE2BSpecificSuggestions(errorMessage: string): ErrorSuggestion[] {
@@ -276,20 +359,6 @@ except ImportError:
 `;
       default:
         return undefined;
-    }
-  }
-
-  async attemptAutoRecovery(error: Error, code: string): Promise<string | null> {
-    if (!this.aiService) {
-      return null;
-    }
-
-    try {
-      const fixedCode = await this.aiService.fixCode(code, error.message);
-      return fixedCode;
-    } catch (err) {
-      console.error('Auto-recovery failed:', err);
-      return null;
     }
   }
 

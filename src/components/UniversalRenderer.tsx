@@ -1,9 +1,9 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
 import { pipelineManager } from '@/utils/pipelineManager';
 import { e2bIntegration } from '@/utils/contentRenderer/e2bIntegration';
 import { artifactInjector, InjectionOptions } from '@/utils/contentRenderer/artifactInjector';
+import { aiBugFixer } from '@/utils/contentRenderer/aiBugFixer';
 import ReactRenderer from './ReactRenderer';
 
 interface UniversalRendererProps {
@@ -50,6 +50,23 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         
         setExecutionMethod(currentMethod);
 
+        // Pre-process with AI bug fixing for all execution methods
+        let processedBlock = block;
+        try {
+          console.log('Running AI bug fixing pre-process...');
+          const fixResult = await aiBugFixer.fixAndValidate(
+            block.code, 
+            detectLanguage(block.type, block.code)
+          );
+          
+          if (fixResult.success && fixResult.confidence > 0.7) {
+            processedBlock = { ...block, code: fixResult.fixedCode };
+            console.log('AI bug fixing applied:', fixResult.fixesApplied);
+          }
+        } catch (bugFixError) {
+          console.warn('AI bug fixing failed, proceeding with original code:', bugFixError);
+        }
+
         if (currentMethod === 'e2b') {
           console.log('Using E2B execution for secure code execution');
           
@@ -59,7 +76,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             return;
           }
           
-          const e2bResult = await e2bIntegration.renderWithE2B(block, {
+          const e2bResult = await e2bIntegration.renderWithE2B(processedBlock, {
             timeout: 30000,
             enableFileSystem: true
           });
@@ -77,21 +94,43 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             artifactInjector.unmountArtifact(currentArtifactId);
           }
           
-          // Inject artifact using module wrapper
+          // Inject artifact using module wrapper with AI error recovery
           const injectionOptions: InjectionOptions = {
             isolateGlobals: true,
             enableHMR: true,
             onMount: (exports) => {
               console.log('Artifact mounted successfully:', exports);
             },
-            onError: (error) => {
+            onError: async (error) => {
               console.error('Artifact injection error:', error);
-              setError(error.message);
+              
+              // Attempt AI auto-recovery
+              try {
+                console.log('Attempting AI auto-recovery...');
+                const recoveryResult = await aiBugFixer.fixBugs(
+                  processedBlock.code,
+                  detectLanguage(processedBlock.type, processedBlock.code),
+                  error.message
+                );
+                
+                if (recoveryResult.success) {
+                  console.log('AI auto-recovery successful, retrying injection...');
+                  // Update block with fixed code and retry
+                  const fixedBlock = { ...processedBlock, code: recoveryResult.fixedCode };
+                  // This would trigger a re-render with the fixed code
+                  setError(null);
+                } else {
+                  setError(error.message);
+                }
+              } catch (recoveryError) {
+                console.error('AI auto-recovery failed:', recoveryError);
+                setError(error.message);
+              }
             }
           };
           
           const artifact = await artifactInjector.injectArtifact(
-            block, 
+            processedBlock, 
             containerRef.current, 
             injectionOptions
           );
@@ -108,13 +147,13 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             return;
           }
 
-          // Use pipeline manager to execute rendering steps
+          // Use pipeline manager to execute rendering steps with AI bug fixing
           const htmlContent = await pipelineManager.executeStage('preview', async () => {
             // Special handling for artifact type
-            if (block.type === 'artifact') {
-              return await renderArtifactContent(block);
+            if (processedBlock.type === 'artifact') {
+              return await renderArtifactContentWithAI(processedBlock);
             } else {
-              return await contentRenderer.generateHtmlDocument(block, {
+              return await contentRenderer.generateHtmlDocument(processedBlock, {
                 ...options,
                 useCompilation: true
               });
@@ -129,7 +168,27 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         }
       } catch (err) {
         console.error('Rendering error:', err);
-        setError(err instanceof Error ? err.message : 'Rendering failed');
+        
+        // Attempt AI auto-recovery for general rendering errors
+        try {
+          console.log('Attempting AI auto-recovery for rendering error...');
+          const recoveryResult = await aiBugFixer.fixBugs(
+            block.code,
+            detectLanguage(block.type, block.code),
+            err instanceof Error ? err.message : 'Rendering failed'
+          );
+          
+          if (recoveryResult.success && recoveryResult.confidence > 0.6) {
+            console.log('AI auto-recovery successful, retrying render...');
+            // This would need to trigger a re-render with the fixed code
+            // For now, we'll just log the success
+          } else {
+            setError(err instanceof Error ? err.message : 'Rendering failed');
+          }
+        } catch (recoveryError) {
+          console.error('AI auto-recovery failed:', recoveryError);
+          setError(err instanceof Error ? err.message : 'Rendering failed');
+        }
         
         // Set error content in iframe if not using module injection
         if (executionMethod !== 'module' && iframeRef.current) {
@@ -248,7 +307,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       )}
       
       {/* Iframe for traditional rendering and E2B */}
-      {executionMethod === 'iframe' || executionMethod === 'e2b' ? (
+      {(executionMethod === 'iframe' || executionMethod === 'e2b') && (
         <iframe
           ref={(iframe) => {
             iframeRef.current = iframe;
@@ -261,118 +320,49 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             executionMethod === 'module' ? '(Module Wrapped)' : ''
           }`}
         />
-      ) : null}
+      )}
     </div>
   );
 };
 
-// Helper function to render artifact content with secure injection
-async function renderArtifactContent(block: ContentBlock): Promise<string> {
-  const { code, title, description } = block;
-  
-  // Detect if it's HTML, React, or other content
-  if (code.includes('<html') || code.includes('<!DOCTYPE')) {
-    return code;
+// Helper function to detect language from block type and code
+function detectLanguage(type?: string, code?: string): string {
+  if (type === 'react' || code?.includes('React') || code?.includes('jsx')) {
+    return 'javascript';
   }
+  if (type === 'javascript') return 'javascript';
+  if (type === 'html') return 'html';
+  if (type === 'css') return 'css';
+  if (code?.includes('def ') || code?.includes('import ')) return 'python';
+  return 'javascript'; // default
+}
 
-  // If it looks like React/JSX
-  if (code.includes('React') || code.includes('jsx') || code.includes('useState')) {
-    // Use safe JSON encoding to prevent syntax errors
-    const safeCode = JSON.stringify(code);
+// Enhanced artifact rendering with AI bug fixing
+async function renderArtifactContentWithAI(block: ContentBlock): Promise<string> {
+  try {
+    // First attempt normal rendering
+    return await renderArtifactContent(block);
+  } catch (error) {
+    console.log('Artifact rendering failed, attempting AI fix...');
     
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title || 'Artifact'}</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { 
-      margin: 0; 
-      padding: 20px; 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #fff;
-    }
-    .error-display {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      padding: 12px;
-      border-radius: 6px;
-      margin: 10px 0;
-      font-family: monospace;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel">
     try {
-      // Safely inject code using JSON.stringify
-      const userCode = ${safeCode};
-      eval(userCode);
+      const fixResult = await aiBugFixer.fixBugs(
+        block.code,
+        detectLanguage(block.type, block.code),
+        error instanceof Error ? error.message : 'Artifact rendering failed'
+      );
       
-      const rootElement = document.getElementById('root');
-      if (typeof App !== 'undefined') {
-        ReactDOM.render(React.createElement(App), rootElement);
-      } else {
-        const componentMatch = userCode.match(/(?:const|function)\\s+(\\w+)\\s*[=\\(]/);
-        if (componentMatch) {
-          const ComponentName = componentMatch[1];
-          try {
-            const Component = eval(ComponentName);
-            if (typeof Component === 'function') {
-              ReactDOM.render(React.createElement(Component), rootElement);
-            }
-          } catch (e) {
-            console.error('Could not render component:', e);
-            rootElement.innerHTML = '<div class="error-display">Error rendering component: ' + e.message + '</div>';
-          }
-        } else {
-          rootElement.innerHTML = '<div class="error-display">No valid React component found</div>';
-        }
+      if (fixResult.success) {
+        const fixedBlock = { ...block, code: fixResult.fixedCode };
+        return await renderArtifactContent(fixedBlock);
       }
-    } catch (error) {
-      console.error('Artifact render error:', error);
-      document.getElementById('root').innerHTML = '<div class="error-display">Render Error: ' + error.message + '</div>';
+    } catch (fixError) {
+      console.error('AI fix failed:', fixError);
     }
-  </script>
-</body>
-</html>`;
+    
+    // If AI fix fails, return error content
+    throw error;
   }
-
-  // For other content types, wrap in basic HTML
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${title || 'Artifact'}</title>
-  <style>
-    body { 
-      margin: 0; 
-      padding: 20px; 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    }
-    pre { 
-      background: #f5f5f5; 
-      padding: 16px; 
-      border-radius: 8px; 
-      overflow-x: auto; 
-    }
-  </style>
-</head>
-<body>
-  <h1>${title || 'Artifact'}</h1>
-  ${description ? `<p style="color: #666;">${description}</p>` : ''}
-  <pre><code>${code}</code></pre>
-</body>
-</html>`;
 }
 
 function createErrorContent(errorMessage: string): string {

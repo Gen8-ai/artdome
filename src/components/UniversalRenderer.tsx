@@ -248,7 +248,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
       )}
       
       {/* Iframe for traditional rendering and E2B */}
-      {executionMethod !== 'module' && (
+      {executionMethod === 'iframe' || executionMethod === 'e2b' ? (
         <iframe
           ref={(iframe) => {
             iframeRef.current = iframe;
@@ -261,7 +261,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
             executionMethod === 'module' ? '(Module Wrapped)' : ''
           }`}
         />
-      )}
+      ) : null}
     </div>
   );
 };

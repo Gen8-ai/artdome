@@ -1,3 +1,4 @@
+
 import { CodeCompiler, codeCompiler } from './codeCompiler';
 import { dependencyAnalyzer } from './dependencyAnalyzer';
 import { eslintIntegration } from './eslintIntegration';
@@ -244,7 +245,7 @@ export class ContentRenderer {
         }
       }
 
-      // Validate module imports
+      // Validate module imports - Fixed to use single argument
       const { moduleImportValidator } = await import('./contentRenderer/moduleImportValidator');
       
       const moduleValidation = moduleImportValidator.validateCode(processedBlock.code);

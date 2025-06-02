@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { ContentBlock, RenderingOptions, contentRenderer } from '@/utils/contentRenderer';
 import { pipelineManager } from '@/utils/pipelineManager';
@@ -14,6 +13,8 @@ interface UniversalRendererProps {
   onCompilationEnd?: () => void;
 }
 
+type ExecutionMethod = 'iframe' | 'e2b' | 'module';
+
 const UniversalRenderer: React.FC<UniversalRendererProps> = ({ 
   block, 
   options = {},
@@ -25,7 +26,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isIframeMounted, setIsIframeMounted] = useState(false);
-  const [executionMethod, setExecutionMethod] = useState<'iframe' | 'e2b' | 'module'>('iframe');
+  const [executionMethod, setExecutionMethod] = useState<ExecutionMethod>('iframe');
   const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ const UniversalRenderer: React.FC<UniversalRendererProps> = ({
         const shouldUseE2B = e2bIntegration.shouldUseE2B(block);
         const shouldUseModule = block.type === 'artifact' || block.type === 'react';
         
-        let currentMethod: 'iframe' | 'e2b' | 'module' = 'iframe';
+        let currentMethod: ExecutionMethod = 'iframe';
         
         if (shouldUseE2B) {
           currentMethod = 'e2b';
